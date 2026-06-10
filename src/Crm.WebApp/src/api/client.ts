@@ -3,8 +3,11 @@ export type DealStatus = 'Open' | 'Won' | 'Lost' | 'Canceled';
 export type TaskStatus = 'New' | 'InProgress' | 'Completed' | 'Canceled';
 export type TaskPriority = 'Low' | 'Normal' | 'High' | 'Urgent';
 export type ActivityType = 'Note' | 'Call' | 'Email' | 'TelegramMessage' | 'Meeting' | 'SystemEvent' | 'AgentAction';
-export type MessageChannel = 'Email' | 'Telegram' | 'WhatsApp' | 'WebsiteChat' | 'Manual';
+export type MessageChannel = 'Email' | 'Telegram' | 'WhatsApp' | 'LinkedIn' | 'WebsiteChat' | 'Manual';
 export type MessageDirection = 'Incoming' | 'Outgoing';
+export type ConversationStatus = 'Unread' | 'WaitingOnUs' | 'WaitingOnThem' | 'Closed';
+export type WorkQueueItemType = 'Task' | 'Activity';
+export type WorkQueueBucket = 'Overdue' | 'DueToday' | 'ThisWeek' | 'Upcoming' | 'Unassigned';
 export type AgentActionType =
   | 'CreateContact'
   | 'UpdateContact'
@@ -166,6 +169,85 @@ export type Message = {
   updatedAt: string;
 };
 
+export type Conversation = {
+  id: string;
+  contactId?: string | null;
+  contactName?: string | null;
+  companyId?: string | null;
+  companyName?: string | null;
+  dealId?: string | null;
+  dealTitle?: string | null;
+  lastChannel: MessageChannel;
+  lastDirection: MessageDirection;
+  lastMessageText: string;
+  lastMessageAt: string;
+  status: ConversationStatus;
+  messageCount: number;
+  openTaskCount: number;
+  messages: Message[];
+};
+
+export type WorkQueueItem = {
+  id: string;
+  type: WorkQueueItemType;
+  sourceId: string;
+  title: string;
+  description?: string | null;
+  activityType?: ActivityType | null;
+  taskStatus?: TaskStatus | null;
+  priority?: TaskPriority | null;
+  dueAt?: string | null;
+  startedAt?: string | null;
+  contactId?: string | null;
+  contactName?: string | null;
+  companyId?: string | null;
+  companyName?: string | null;
+  dealId?: string | null;
+  dealTitle?: string | null;
+  responsibleUserId?: string | null;
+  bucket: WorkQueueBucket;
+  isOverdue: boolean;
+  sortAt: string;
+};
+
+export type ContactDuplicateCandidate = {
+  id: string;
+  primaryContact: Contact;
+  duplicateContact: Contact;
+  confidence: number;
+  reason: string;
+};
+
+export type MergeContactsInput = {
+  primaryContactId: string;
+  duplicateContactId: string;
+};
+
+export type BulkCreateTaskInput = {
+  contactIds?: string[];
+  dealIds?: string[];
+  title: string;
+  description?: string | null;
+  dueAt?: string | null;
+  priority: TaskPriority;
+  responsibleUserId?: string | null;
+};
+
+export type BulkOperationItemResult = {
+  targetId: string;
+  targetType: EntityType;
+  succeeded: boolean;
+  message?: string | null;
+  createdTaskId?: string | null;
+};
+
+export type BulkOperationResult = {
+  requested: number;
+  succeeded: number;
+  failed: number;
+  items: BulkOperationItemResult[];
+};
+
 export type Agent = {
   id: string;
   name: string;
@@ -267,8 +349,11 @@ export const api = {
   dashboard: () => request<DashboardSummary>('/api/dashboard'),
   contacts: {
     list: () => request<Contact[]>('/api/contacts'),
+    duplicates: () => request<ContactDuplicateCandidate[]>('/api/contacts/duplicates'),
     create: (body: ContactInput) => request<Contact>('/api/contacts', json(body)),
     update: (id: string, body: ContactInput) => request<Contact>(`/api/contacts/${id}`, put(body)),
+    merge: (body: MergeContactsInput) => request<Contact>('/api/contacts/merge', json(body)),
+    bulkCreateTask: (body: BulkCreateTaskInput) => request<BulkOperationResult>('/api/contacts/bulk/create-task', json(body)),
     delete: (id: string) => request<void>(`/api/contacts/${id}`, { method: 'DELETE' }),
   },
   companies: {
@@ -288,6 +373,7 @@ export const api = {
     moveStage: (id: string, stageId: string) => request<Deal>(`/api/deals/${id}/move-stage`, json({ stageId })),
     markWon: (id: string) => request<Deal>(`/api/deals/${id}/mark-won`, { method: 'POST' }),
     markLost: (id: string) => request<Deal>(`/api/deals/${id}/mark-lost`, { method: 'POST' }),
+    bulkCreateTask: (body: BulkCreateTaskInput) => request<BulkOperationResult>('/api/deals/bulk/create-task', json(body)),
     delete: (id: string) => request<void>(`/api/deals/${id}`, { method: 'DELETE' }),
   },
   tasks: {
@@ -300,10 +386,12 @@ export const api = {
   },
   activities: {
     list: () => request<Activity[]>('/api/activities/timeline'),
+    workQueue: () => request<WorkQueueItem[]>('/api/activities/work-queue'),
     create: (body: ActivityInput) => request<Activity>('/api/activities', json(body)),
   },
   messages: {
     list: () => request<Message[]>('/api/messages'),
+    conversations: () => request<Conversation[]>('/api/messages/conversations'),
     create: (body: MessageInput) => request<Message>('/api/messages', json(body)),
   },
   agents: {

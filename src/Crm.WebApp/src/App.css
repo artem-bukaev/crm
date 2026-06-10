@@ -127,6 +127,44 @@
   justify-content: space-between;
 }
 
+.simple-list {
+  min-width: 0;
+}
+
+.simple-list-empty {
+  display: grid;
+  min-height: 96px;
+  place-items: center;
+}
+
+.simple-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  padding: 12px 0;
+  border-top: 1px solid #e2e5dc;
+}
+
+.simple-list-item:first-child {
+  border-top: 0;
+}
+
+.simple-list-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.queue-list .simple-list-item,
+.ai-action-list .simple-list-item,
+.duplicate-list .simple-list-item {
+  align-items: flex-start;
+}
+
 .kanban {
   display: grid;
   grid-auto-flow: column;
@@ -153,6 +191,199 @@
 
 .deal-card {
   margin-bottom: 10px;
+}
+
+.queue-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px 0;
+}
+
+.queue-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.queue-group {
+  min-height: 240px;
+  padding: 12px;
+  background: #f8f9f4;
+  border: 1px solid #d9ddd3;
+  border-radius: 6px;
+}
+
+.queue-group-title {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.conversation-workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(420px, 1fr) minmax(300px, 360px);
+  min-height: calc(100vh - 140px);
+  overflow: hidden;
+  background: #fbfcf8;
+  border: 1px solid #d9ddd3;
+  border-radius: 6px;
+}
+
+.conversation-workspace.ai-collapsed {
+  grid-template-columns: minmax(280px, 340px) minmax(420px, 1fr);
+}
+
+.conversation-list {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border-right: 1px solid #d9ddd3;
+  background: #f7f8f2;
+}
+
+.conversation-search {
+  padding: 12px;
+}
+
+.conversation-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 10px;
+}
+
+.conversation-list-scroll {
+  overflow: auto;
+}
+
+.conversation-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid #e2e5dc;
+  cursor: pointer;
+}
+
+.conversation-item:hover,
+.conversation-item.active {
+  background: #eef1e8;
+}
+
+.avatar-token {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #315447;
+  background: #e3eadf;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.conversation-item-main {
+  min-width: 0;
+}
+
+.conversation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.conversation-thread {
+  display: grid;
+  min-width: 0;
+  grid-template-rows: auto 1fr auto;
+  background: #fcfdf9;
+}
+
+.thread-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #d9ddd3;
+}
+
+.thread-header h4 {
+  margin: 0;
+}
+
+.message-timeline {
+  overflow: auto;
+  padding: 18px;
+}
+
+.message-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 72%;
+  margin-bottom: 16px;
+}
+
+.message-row.outgoing {
+  margin-left: auto;
+  align-items: flex-end;
+}
+
+.message-row.incoming {
+  margin-right: auto;
+  align-items: flex-start;
+}
+
+.message-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.message-bubble {
+  padding: 10px 12px;
+  color: #202522;
+  background: #eef1e8;
+  border: 1px solid #dde3d8;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+
+.message-row.outgoing .message-bubble {
+  color: #fff;
+  background: #2f6f5e;
+  border-color: #2f6f5e;
+}
+
+.message-composer {
+  padding: 12px 18px 16px;
+  border-top: 1px solid #d9ddd3;
+  background: #f7f8f2;
+}
+
+.ai-panel {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-left: 1px solid #d9ddd3;
+  background: #f8f9f4;
+}
+
+.ai-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .json-block,
@@ -190,6 +421,32 @@
   }
 
   .page-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .queue-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .conversation-workspace,
+  .conversation-workspace.ai-collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .conversation-list,
+  .ai-panel {
+    border-right: 0;
+    border-left: 0;
+    border-bottom: 1px solid #d9ddd3;
+  }
+
+  .message-row {
+    max-width: 92%;
+  }
+
+  .simple-list-item {
     align-items: flex-start;
     flex-direction: column;
   }

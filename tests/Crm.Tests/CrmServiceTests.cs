@@ -182,6 +182,136 @@ public sealed class CrmServiceTests : IDisposable
         _db.Activities.Single(x => x.Title == "Agent note").Type.Should().Be(ActivityType.Note);
     }
 
+    [Fact]
+    public async Task GetConversations_groups_messages_by_contact()
+    {
+        await _service.CreateMessageAsync(new CreateMessageRequest
+        {
+            ContactId = _contact.Id,
+            Direction = MessageDirection.Outgoing,
+            Channel = MessageChannel.Email,
+            Text = "Добрый день, Иван."
+        });
+        await _service.CreateMessageAsync(new CreateMessageRequest
+        {
+            ContactId = _contact.Id,
+            Direction = MessageDirection.Incoming,
+            Channel = MessageChannel.Email,
+            Text = "Спасибо, получил."
+        });
+
+        var conversations = await _service.GetConversationsAsync();
+
+        conversations.Should().ContainSingle();
+        conversations[0].ContactId.Should().Be(_contact.Id);
+        conversations[0].MessageCount.Should().Be(2);
+        conversations[0].Status.Should().Be(ConversationStatus.Unread);
+    }
+
+    [Fact]
+    public async Task GetWorkQueue_returns_overdue_tasks_and_recent_activities()
+    {
+        await _service.CreateTaskAsync(new CreateTaskRequest
+        {
+            Title = "Overdue follow-up",
+            ContactId = _contact.Id,
+            CompanyId = _company.Id,
+            DueAt = DateTimeOffset.UtcNow.AddDays(-1),
+            Priority = CrmTaskPriority.Urgent
+        });
+        await _service.CreateActivityAsync(new CreateActivityRequest
+        {
+            Type = ActivityType.Meeting,
+            Title = "Intro meeting",
+            ContactId = _contact.Id,
+            CompanyId = _company.Id
+        });
+
+        var queue = await _service.GetWorkQueueAsync();
+
+        queue.Should().Contain(x => x.Type == WorkQueueItemType.Task && x.Bucket == WorkQueueBucket.Overdue);
+        queue.Should().Contain(x => x.Type == WorkQueueItemType.Activity && x.ActivityType == ActivityType.Meeting);
+    }
+
+    [Fact]
+    public async Task GetContactDuplicates_detects_exact_email_match()
+    {
+        await _service.CreateContactAsync(new CreateContactRequest
+        {
+            FirstName = "Ivan",
+            LastName = "Petrov Duplicate",
+            Email = "ivan@example.com",
+            CompanyId = _company.Id
+        });
+        await _service.UpdateContactAsync(_contact.Id, new UpdateContactRequest
+        {
+            FirstName = _contact.FirstName,
+            LastName = _contact.LastName,
+            Email = "IVAN@example.com",
+            CompanyId = _company.Id
+        });
+
+        var duplicates = await _service.GetContactDuplicatesAsync();
+
+        duplicates.Should().ContainSingle(x => x.Confidence == 100 && x.Reason == "Same email");
+    }
+
+    [Fact]
+    public async Task MergeContacts_moves_related_records_and_soft_deletes_duplicate()
+    {
+        var duplicate = await _service.CreateContactAsync(new CreateContactRequest
+        {
+            FirstName = "Ivan",
+            LastName = "Petrov",
+            Email = "ivan@example.com",
+            CompanyId = _company.Id
+        });
+        var task = await _service.CreateTaskAsync(new CreateTaskRequest
+        {
+            Title = "Duplicate task",
+            ContactId = duplicate.Id,
+            CompanyId = _company.Id
+        });
+        var message = await _service.CreateMessageAsync(new CreateMessageRequest
+        {
+            ContactId = duplicate.Id,
+            Text = "Linked to duplicate"
+        });
+
+        var merged = await _service.MergeContactsAsync(new MergeContactsRequest
+        {
+            PrimaryContactId = _contact.Id,
+            DuplicateContactId = duplicate.Id
+        });
+
+        merged.Id.Should().Be(_contact.Id);
+        _db.Contacts.Single(x => x.Id == duplicate.Id).IsDeleted.Should().BeTrue();
+        _db.Tasks.Single(x => x.Id == task.Id).ContactId.Should().Be(_contact.Id);
+        _db.Messages.Single(x => x.Id == message.Id).ContactId.Should().Be(_contact.Id);
+    }
+
+    [Fact]
+    public async Task BulkCreateContactTasks_creates_task_for_each_contact()
+    {
+        var second = await _service.CreateContactAsync(new CreateContactRequest
+        {
+            FirstName = "Anna",
+            LastName = "Smirnova",
+            CompanyId = _company.Id
+        });
+
+        var result = await _service.BulkCreateContactTasksAsync(new BulkCreateTaskRequest
+        {
+            ContactIds = [_contact.Id, second.Id],
+            Title = "Bulk follow-up",
+            Priority = CrmTaskPriority.High
+        });
+
+        result.Requested.Should().Be(2);
+        result.Succeeded.Should().Be(2);
+        _db.Tasks.Count(x => x.Title == "Bulk follow-up").Should().Be(2);
+    }
+
     public void Dispose()
     {
         _db.Dispose();

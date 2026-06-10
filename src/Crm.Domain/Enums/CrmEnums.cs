@@ -48,6 +48,7 @@ public enum MessageChannel
     Email,
     Telegram,
     WhatsApp,
+    LinkedIn,
     WebsiteChat,
     Manual
 }
@@ -56,6 +57,29 @@ public enum MessageDirection
 {
     Incoming,
     Outgoing
+}
+
+public enum ConversationStatus
+{
+    Unread,
+    WaitingOnUs,
+    WaitingOnThem,
+    Closed
+}
+
+public enum WorkQueueItemType
+{
+    Task,
+    Activity
+}
+
+public enum WorkQueueBucket
+{
+    Overdue,
+    DueToday,
+    ThisWeek,
+    Upcoming,
+    Unassigned
 }
 
 public enum AgentActionStatus

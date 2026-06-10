@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type Key, type ReactNode } from 'react';
 import {
   CheckOutlined,
   CloseOutlined,
@@ -6,10 +6,12 @@ import {
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
+  FilterOutlined,
   MessageOutlined,
   PlusOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
+  SendOutlined,
   TeamOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
@@ -20,18 +22,22 @@ import {
   Col,
   ConfigProvider,
   Descriptions,
+  Badge,
+  Divider,
   Drawer,
   Empty,
   Form,
   Input,
   InputNumber,
   Layout,
-  List,
   Modal,
   Progress,
+  Radio,
   Row,
+  Segmented,
   Select,
   Space,
+  Spin,
   Statistic,
   Switch,
   Table,
@@ -55,23 +61,29 @@ import {
   type AgentActionType,
   type AgentInput,
   type ApprovalRequest,
+  type BulkCreateTaskInput,
   type Company,
   type CompanyInput,
   type Contact,
+  type ContactDuplicateCandidate,
   type ContactInput,
   type ContactStatus,
+  type Conversation,
+  type ConversationStatus,
   type CrmTask,
   type Deal,
   type DealInput,
   type DealStatus,
   type EntityType,
-  type Message,
   type MessageChannel,
   type MessageDirection,
   type MessageInput,
   type TaskInput,
   type TaskPriority,
   type TaskStatus,
+  type WorkQueueBucket,
+  type WorkQueueItem,
+  type WorkQueueItemType,
 } from './api/client';
 import './App.css';
 
@@ -91,8 +103,11 @@ const dealStatuses: DealStatus[] = ['Open', 'Won', 'Lost', 'Canceled'];
 const taskStatuses: TaskStatus[] = ['New', 'InProgress', 'Completed', 'Canceled'];
 const taskPriorities: TaskPriority[] = ['Low', 'Normal', 'High', 'Urgent'];
 const activityTypes: ActivityType[] = ['Note', 'Call', 'Email', 'TelegramMessage', 'Meeting', 'SystemEvent', 'AgentAction'];
-const messageChannels: MessageChannel[] = ['Email', 'Telegram', 'WhatsApp', 'WebsiteChat', 'Manual'];
+const messageChannels: MessageChannel[] = ['Email', 'Telegram', 'WhatsApp', 'LinkedIn', 'WebsiteChat', 'Manual'];
 const messageDirections: MessageDirection[] = ['Incoming', 'Outgoing'];
+const conversationStatuses: ConversationStatus[] = ['Unread', 'WaitingOnUs', 'WaitingOnThem', 'Closed'];
+const workQueueBuckets: WorkQueueBucket[] = ['Overdue', 'DueToday', 'ThisWeek', 'Upcoming', 'Unassigned'];
+const workQueueTypes: WorkQueueItemType[] = ['Task', 'Activity'];
 const actionTypes: AgentActionType[] = [
   'CreateContact',
   'UpdateContact',
@@ -122,6 +137,26 @@ function enumOptions<T extends string>(items: T[]) {
   return items.map((value) => ({ label: value, value }));
 }
 
+function compactId(value?: string | null) {
+  return value ? value.slice(0, 8) : '—';
+}
+
+function toLocalDateTimeInput(value?: string | null) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function toApiDateTime(value?: string | null) {
+  return value ? new Date(value).toISOString() : null;
+}
+
+function linkedLabel(row: { contactName?: string | null; companyName?: string | null; dealTitle?: string | null }) {
+  return [row.contactName, row.companyName, row.dealTitle].filter(Boolean).join(' · ') || 'General';
+}
+
 function statusColor(status: string) {
   return {
     Active: 'green',
@@ -143,6 +178,15 @@ function statusColor(status: string) {
     High: 'volcano',
     Normal: 'blue',
     Low: 'default',
+    Unread: 'red',
+    WaitingOnUs: 'gold',
+    WaitingOnThem: 'cyan',
+    Closed: 'default',
+    Overdue: 'red',
+    DueToday: 'gold',
+    ThisWeek: 'blue',
+    Upcoming: 'default',
+    Unassigned: 'purple',
   }[status] ?? 'default';
 }
 
@@ -177,6 +221,51 @@ function PageTitle({ title, extra }: { title: string; extra?: ReactNode }) {
     <div className="page-title">
       <Title level={2}>{title}</Title>
       <Space>{extra}</Space>
+    </div>
+  );
+}
+
+function SimpleList<T>({
+  items,
+  loading,
+  emptyDescription,
+  className,
+  getKey,
+  renderItem,
+}: {
+  items?: T[];
+  loading?: boolean;
+  emptyDescription?: ReactNode;
+  className?: string;
+  getKey?: (item: T, index: number) => Key;
+  renderItem: (item: T) => ReactNode;
+}) {
+  const data = items ?? [];
+  const listClassName = ['simple-list', className].filter(Boolean).join(' ');
+
+  if (loading) {
+    return (
+      <div className={listClassName}>
+        <div className="simple-list-empty"><Spin /></div>
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className={listClassName}>
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={emptyDescription} />
+      </div>
+    );
+  }
+
+  return (
+    <div className={listClassName}>
+      {data.map((item, index) => (
+        <div className="simple-list-item" key={getKey?.(item, index) ?? index}>
+          {renderItem(item)}
+        </div>
+      ))}
     </div>
   );
 }
@@ -221,7 +310,7 @@ function Shell() {
     { key: 'contacts', icon: <TeamOutlined />, label: 'Contacts' },
     { key: 'companies', icon: <SafetyCertificateOutlined />, label: 'Companies' },
     { key: 'deals', icon: <UnorderedListOutlined />, label: 'Deals' },
-    { key: 'tasks', icon: <CheckOutlined />, label: 'Tasks' },
+    { key: 'activities', icon: <CheckOutlined />, label: 'Activities' },
     { key: 'timeline', icon: <UnorderedListOutlined />, label: 'Timeline' },
     { key: 'messages', icon: <MessageOutlined />, label: 'Messages' },
     { key: 'agents', icon: <RobotOutlined />, label: 'Agents' },
@@ -243,7 +332,7 @@ function Shell() {
       </Sider>
       <Layout>
         <Header className="topbar">
-          <Space split={<span className="topbar-dot" />}>
+          <Space separator={<span className="topbar-dot" />}>
             <Text strong>API</Text>
             <Text type="secondary">{api.baseUrl}</Text>
           </Space>
@@ -260,6 +349,7 @@ function Shell() {
             <Route path="/contacts" element={<ContactsPage />} />
             <Route path="/companies" element={<CompaniesPage />} />
             <Route path="/deals" element={<DealsPage />} />
+            <Route path="/activities" element={<ActivitiesPage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/timeline" element={<TimelinePage />} />
             <Route path="/messages" element={<MessagesPage />} />
@@ -328,31 +418,38 @@ function DashboardPage() {
       <Row gutter={[16, 16]} className="mt">
         <Col xs={24} xl={14}>
           <Card title="Open pipeline">
-            <List
-              dataSource={openDeals.slice(0, 6)}
-              locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+            <SimpleList
+              items={openDeals.slice(0, 6)}
+              getKey={(deal) => deal.id}
               renderItem={(deal) => (
-                <List.Item>
-                  <List.Item.Meta title={deal.title} description={`${deal.companyName ?? 'No company'} · ${deal.stageName ?? 'No stage'}`} />
+                <>
+                  <div className="simple-list-main">
+                    <Text strong>{deal.title}</Text>
+                    <Text type="secondary">{`${deal.companyName ?? 'No company'} · ${deal.stageName ?? 'No stage'}`}</Text>
+                  </div>
                   <Space>
                     <Progress type="circle" size={42} percent={deal.probability} />
                     <Text strong>{money(deal.amount, deal.currency)}</Text>
                   </Space>
-                </List.Item>
+                </>
               )}
             />
           </Card>
         </Col>
         <Col xs={24} xl={10}>
           <Card title="Agent queue">
-            <List
-              dataSource={(actions.data ?? []).slice(0, 6)}
-              locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+            <SimpleList
+              items={(actions.data ?? []).slice(0, 6)}
+              loading={actions.isLoading}
+              getKey={(action) => action.id}
               renderItem={(action) => (
-                <List.Item>
-                  <List.Item.Meta title={action.actionType} description={action.agentName ?? action.agentId} />
+                <>
+                  <div className="simple-list-main">
+                    <Text strong>{action.actionType}</Text>
+                    <Text type="secondary">{action.agentName ?? action.agentId}</Text>
+                  </div>
                   <StatusTag value={action.status} />
-                </List.Item>
+                </>
               )}
             />
           </Card>
@@ -365,9 +462,14 @@ function DashboardPage() {
 function ContactsPage() {
   const [editing, setEditing] = useState<Contact | null>();
   const [viewing, setViewing] = useState<Contact | null>();
+  const [duplicateDrawerOpen, setDuplicateDrawerOpen] = useState(false);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
+  const [bulkTaskOpen, setBulkTaskOpen] = useState(false);
   const query = useQuery({ queryKey: ['contacts'], queryFn: api.contacts.list });
+  const duplicates = useQuery({ queryKey: ['contactDuplicates'], queryFn: api.contacts.duplicates });
   const lookups = useLookups();
   const remove = useNotifyMutation(api.contacts.delete, ['contacts', 'dashboard']);
+  const merge = useNotifyMutation(api.contacts.merge, ['contacts', 'contactDuplicates', 'messages', 'activities', 'tasks', 'deals', 'dashboard']);
 
   const columns: ColumnsType<Contact> = [
     { title: 'Name', dataIndex: 'fullName', render: (_, row) => <Button type="link" onClick={() => setViewing(row)}>{row.fullName || row.email || row.id}</Button> },
@@ -390,10 +492,48 @@ function ContactsPage() {
 
   return (
     <>
-      <PageTitle title="Contacts" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing(null)}>New contact</Button>} />
-      <Table rowKey="id" loading={query.isLoading} dataSource={query.data} columns={columns} />
+      <PageTitle
+        title="Contacts"
+        extra={(
+          <>
+            <Badge count={duplicates.data?.length ?? 0} size="small">
+              <Button icon={<FilterOutlined />} onClick={() => setDuplicateDrawerOpen(true)}>Duplicates</Button>
+            </Badge>
+            <Button disabled={selectedRowKeys.length === 0} onClick={() => setBulkTaskOpen(true)}>Bulk task</Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing(null)}>New contact</Button>
+          </>
+        )}
+      />
+      <Table
+        rowKey="id"
+        loading={query.isLoading}
+        dataSource={query.data}
+        columns={columns}
+        rowSelection={{
+          selectedRowKeys,
+          onChange: setSelectedRowKeys,
+        }}
+      />
       <ContactEditor open={editing !== undefined} contact={editing ?? undefined} companies={lookups.companyOptions} onClose={() => setEditing(undefined)} />
-      <Drawer open={Boolean(viewing)} title={viewing?.fullName || 'Contact'} onClose={() => setViewing(null)} width={520}>
+      <BulkTaskModal
+        open={bulkTaskOpen}
+        title="Create task for selected contacts"
+        count={selectedRowKeys.length}
+        onClose={() => setBulkTaskOpen(false)}
+        onSubmit={(values) => api.contacts.bulkCreateTask({ ...values, contactIds: selectedRowKeys.map(String) })}
+        invalidate={['contacts', 'tasks', 'activities', 'dashboard']}
+      />
+      <DuplicateContactsDrawer
+        open={duplicateDrawerOpen}
+        duplicates={duplicates.data ?? []}
+        loading={duplicates.isLoading || merge.isPending}
+        onClose={() => setDuplicateDrawerOpen(false)}
+        onMerge={(candidate) => merge.mutate({
+          primaryContactId: candidate.primaryContact.id,
+          duplicateContactId: candidate.duplicateContact.id,
+        })}
+      />
+      <Drawer open={Boolean(viewing)} title={viewing?.fullName || 'Contact'} onClose={() => setViewing(null)} size="large">
         {viewing && (
           <Descriptions column={1} bordered size="small">
             <Descriptions.Item label="Company">{viewing.companyName ?? '—'}</Descriptions.Item>
@@ -407,6 +547,96 @@ function ContactsPage() {
         )}
       </Drawer>
     </>
+  );
+}
+
+function DuplicateContactsDrawer({
+  open,
+  duplicates,
+  loading,
+  onClose,
+  onMerge,
+}: {
+  open: boolean;
+  duplicates: ContactDuplicateCandidate[];
+  loading: boolean;
+  onClose: () => void;
+  onMerge: (candidate: ContactDuplicateCandidate) => void;
+}) {
+  return (
+    <Drawer open={open} title="Potential duplicates" onClose={onClose} size="large">
+      <SimpleList
+        loading={loading}
+        items={duplicates}
+        emptyDescription="No duplicates found"
+        className="duplicate-list"
+        getKey={(candidate) => `${candidate.primaryContact.id}-${candidate.duplicateContact.id}`}
+        renderItem={(candidate) => (
+          <>
+            <div className="simple-list-main">
+              <div>
+                <Space wrap>
+                  <StatusTag value={`${candidate.confidence}%`} />
+                  <Text strong>{candidate.reason}</Text>
+                </Space>
+              </div>
+              <Space orientation="vertical" size={4}>
+                <Text>{candidate.primaryContact.fullName || candidate.primaryContact.email || candidate.primaryContact.id}</Text>
+                <Text type="secondary">Duplicate: {candidate.duplicateContact.fullName || candidate.duplicateContact.email || candidate.duplicateContact.id}</Text>
+                <Text type="secondary">{[candidate.primaryContact.email, candidate.primaryContact.phone, candidate.primaryContact.companyName].filter(Boolean).join(' · ')}</Text>
+              </Space>
+            </div>
+            <Button type="primary" onClick={() => onMerge(candidate)}>Merge</Button>
+          </>
+        )}
+      />
+    </Drawer>
+  );
+}
+
+function BulkTaskModal({
+  open,
+  title,
+  count,
+  onClose,
+  onSubmit,
+  invalidate,
+}: {
+  open: boolean;
+  title: string;
+  count: number;
+  onClose: () => void;
+  onSubmit: (values: BulkCreateTaskInput) => Promise<unknown>;
+  invalidate: string[];
+}) {
+  const [form] = Form.useForm<BulkCreateTaskInput & { dueAtLocal?: string }>();
+  const mutation = useNotifyMutation(onSubmit, invalidate);
+
+  useEffect(() => {
+    if (open) {
+      form.setFieldsValue({ title: 'Follow up', priority: 'Normal' });
+    }
+  }, [form, open]);
+
+  return (
+    <Modal open={open} title={title} onCancel={onClose} onOk={() => form.submit()} confirmLoading={mutation.isPending} destroyOnHidden>
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={({ dueAtLocal, ...values }) => mutation.mutate({
+          ...values,
+          dueAt: toApiDateTime(dueAtLocal),
+        }, { onSuccess: onClose })}
+      >
+        <Text type="secondary">Selected records: {count}</Text>
+        <Form.Item name="title" label="Task title" rules={[{ required: true }]}><Input /></Form.Item>
+        <Form.Item name="description" label="Description"><Input.TextArea rows={3} /></Form.Item>
+        <Row gutter={12}>
+          <Col span={12}><Form.Item name="priority" label="Priority"><Select options={enumOptions(taskPriorities)} /></Form.Item></Col>
+          <Col span={12}><Form.Item name="dueAtLocal" label="Due"><Input type="datetime-local" /></Form.Item></Col>
+        </Row>
+      </Form>
+    </Modal>
   );
 }
 
@@ -470,7 +700,7 @@ function CompaniesPage() {
       <PageTitle title="Companies" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing(null)}>New company</Button>} />
       <Table rowKey="id" loading={query.isLoading} dataSource={query.data} columns={columns} />
       <CompanyEditor open={editing !== undefined} company={editing ?? undefined} onClose={() => setEditing(undefined)} />
-      <Drawer open={Boolean(viewing)} title={viewing?.name} onClose={() => setViewing(null)} width={520}>
+      <Drawer open={Boolean(viewing)} title={viewing?.name} onClose={() => setViewing(null)} size="large">
         {viewing && (
           <Descriptions column={1} bordered size="small">
             <Descriptions.Item label="Legal name">{viewing.legalName ?? '—'}</Descriptions.Item>
@@ -515,6 +745,8 @@ function CompanyEditor({ open, company, onClose }: { open: boolean; company?: Co
 
 function DealsPage() {
   const [editing, setEditing] = useState<Deal | null>();
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
+  const [bulkTaskOpen, setBulkTaskOpen] = useState(false);
   const query = useQuery({ queryKey: ['deals'], queryFn: api.deals.list });
   const lookups = useLookups();
   const move = useNotifyMutation(({ id, stageId }: { id: string; stageId: string }) => api.deals.moveStage(id, stageId), ['deals', 'dashboard', 'activities']);
@@ -541,10 +773,30 @@ function DealsPage() {
 
   return (
     <>
-      <PageTitle title="Deals" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing(null)}>New deal</Button>} />
+      <PageTitle
+        title="Deals"
+        extra={(
+          <>
+            <Button disabled={selectedRowKeys.length === 0} onClick={() => setBulkTaskOpen(true)}>Bulk task</Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing(null)}>New deal</Button>
+          </>
+        )}
+      />
       <Tabs
         items={[
-          { key: 'table', label: 'Table', children: <Table rowKey="id" loading={query.isLoading} dataSource={query.data} columns={columns} /> },
+          {
+            key: 'table',
+            label: 'Table',
+            children: (
+              <Table
+                rowKey="id"
+                loading={query.isLoading}
+                dataSource={query.data}
+                columns={columns}
+                rowSelection={{ selectedRowKeys, onChange: setSelectedRowKeys }}
+              />
+            ),
+          },
           {
             key: 'kanban',
             label: 'Kanban',
@@ -558,7 +810,7 @@ function DealsPage() {
                     </div>
                     {(query.data ?? []).filter((deal) => deal.stageId === stage.id).map((deal) => (
                       <Card key={deal.id} className="deal-card" size="small">
-                        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                        <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                           <Text strong>{deal.title}</Text>
                           <Text type="secondary">{deal.companyName ?? deal.contactName ?? 'No account'}</Text>
                           <Space className="spread">
@@ -575,6 +827,14 @@ function DealsPage() {
             ),
           },
         ]}
+      />
+      <BulkTaskModal
+        open={bulkTaskOpen}
+        title="Create task for selected deals"
+        count={selectedRowKeys.length}
+        onClose={() => setBulkTaskOpen(false)}
+        onSubmit={(values) => api.deals.bulkCreateTask({ ...values, dealIds: selectedRowKeys.map(String) })}
+        invalidate={['deals', 'tasks', 'activities', 'dashboard']}
       />
       <DealEditor open={editing !== undefined} deal={editing ?? undefined} lookups={lookups} onClose={() => setEditing(undefined)} />
     </>
@@ -617,6 +877,129 @@ function DealEditor({ open, deal, lookups, onClose }: { open: boolean; deal?: De
   );
 }
 
+function ActivitiesPage() {
+  const [taskEditorOpen, setTaskEditorOpen] = useState(false);
+  const [activityEditorOpen, setActivityEditorOpen] = useState(false);
+  const [bucket, setBucket] = useState<WorkQueueBucket | 'All'>('All');
+  const [type, setType] = useState<WorkQueueItemType | 'All'>('All');
+  const [view, setView] = useState<'table' | 'grouped'>('table');
+  const query = useQuery({ queryKey: ['workQueue'], queryFn: api.activities.workQueue });
+  const lookups = useLookups();
+  const complete = useNotifyMutation(api.tasks.complete, ['workQueue', 'tasks', 'dashboard']);
+  const cancel = useNotifyMutation(api.tasks.cancel, ['workQueue', 'tasks', 'dashboard']);
+
+  const items = query.data ?? [];
+  const visibleItems = items.filter((item) =>
+    (bucket === 'All' || item.bucket === bucket) &&
+    (type === 'All' || item.type === type));
+  const bucketCount = (value: WorkQueueBucket) => items.filter((item) => item.bucket === value).length;
+  const unassignedCount = items.filter((item) => item.responsibleUserId == null && item.type === 'Task').length;
+
+  const columns: ColumnsType<WorkQueueItem> = [
+    {
+      title: 'Type',
+      dataIndex: 'type',
+      width: 118,
+      render: (_, row) => <Tag color={row.type === 'Task' ? 'blue' : 'green'}>{row.activityType ?? row.type}</Tag>,
+    },
+    {
+      title: 'Title',
+      dataIndex: 'title',
+      render: (_, row) => (
+        <Space orientation="vertical" size={2}>
+          <Text strong>{row.title}</Text>
+          {row.description && <Text type="secondary" ellipsis>{row.description}</Text>}
+        </Space>
+      ),
+    },
+    { title: 'Bucket', dataIndex: 'bucket', width: 130, render: StatusTag },
+    { title: 'Priority', dataIndex: 'priority', width: 120, render: StatusTag },
+    { title: 'Linked', width: 260, render: (_, row) => <Text type="secondary">{linkedLabel(row)}</Text> },
+    { title: 'Assignee', dataIndex: 'responsibleUserId', width: 120, render: compactId },
+    { title: 'Due / start', width: 160, render: (_, row) => formatDate(row.dueAt ?? row.startedAt) },
+    {
+      title: '',
+      width: 132,
+      render: (_, row) => row.type === 'Task' ? (
+        <Space>
+          <Button icon={<CheckOutlined />} onClick={() => complete.mutate(row.sourceId)} />
+          <Button danger icon={<CloseOutlined />} onClick={() => cancel.mutate(row.sourceId)} />
+        </Space>
+      ) : null,
+    },
+  ];
+
+  return (
+    <>
+      <PageTitle
+        title="Activities"
+        extra={(
+          <>
+            <Button onClick={() => setActivityEditorOpen(true)}>Add activity</Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setTaskEditorOpen(true)}>New task</Button>
+          </>
+        )}
+      />
+      <div className="queue-toolbar">
+        <Space wrap>
+          <Button type={bucket === 'All' ? 'primary' : 'default'} onClick={() => setBucket('All')}>All {items.length}</Button>
+          <Button danger={bucketCount('Overdue') > 0} type={bucket === 'Overdue' ? 'primary' : 'default'} onClick={() => setBucket('Overdue')}>Overdue {bucketCount('Overdue')}</Button>
+          <Button type={bucket === 'DueToday' ? 'primary' : 'default'} onClick={() => setBucket('DueToday')}>Today {bucketCount('DueToday')}</Button>
+          <Button type={bucket === 'ThisWeek' ? 'primary' : 'default'} onClick={() => setBucket('ThisWeek')}>This week {bucketCount('ThisWeek')}</Button>
+          <Button type={bucket === 'Unassigned' ? 'primary' : 'default'} onClick={() => setBucket('Unassigned')}>Unassigned {unassignedCount}</Button>
+        </Space>
+        <Space wrap>
+          <Select value={type} onChange={setType} options={[{ label: 'All types', value: 'All' }, ...enumOptions(workQueueTypes)]} style={{ width: 150 }} />
+          <Segmented value={view} onChange={(value) => setView(value as 'table' | 'grouped')} options={[{ label: 'Table', value: 'table' }, { label: 'Grouped', value: 'grouped' }]} />
+        </Space>
+      </div>
+      {view === 'table' ? (
+        <Table rowKey="id" loading={query.isLoading} dataSource={visibleItems} columns={columns} />
+      ) : (
+        <div className="queue-groups">
+          {workQueueBuckets.map((group) => {
+            const groupItems = visibleItems.filter((item) => item.bucket === group);
+            if (groupItems.length === 0) return null;
+
+            return (
+              <section className="queue-group" key={group}>
+                <div className="queue-group-title">
+                  <StatusTag value={group} />
+                  <Tag>{groupItems.length}</Tag>
+                </div>
+                <SimpleList
+                  items={groupItems}
+                  className="queue-list"
+                  getKey={(item) => item.id}
+                  renderItem={(item) => (
+                    <>
+                      <div className="simple-list-main">
+                        <Space wrap>
+                          <Tag>{item.activityType ?? item.type}</Tag>
+                          <Text strong>{item.title}</Text>
+                        </Space>
+                        <Text type="secondary">{`${linkedLabel(item)} · ${formatDate(item.dueAt ?? item.startedAt)}`}</Text>
+                      </div>
+                      {item.type === 'Task' ? (
+                        <Space>
+                          <Button size="small" icon={<CheckOutlined />} onClick={() => complete.mutate(item.sourceId)} />
+                          <Button size="small" danger icon={<CloseOutlined />} onClick={() => cancel.mutate(item.sourceId)} />
+                        </Space>
+                      ) : null}
+                    </>
+                  )}
+                />
+              </section>
+            );
+          })}
+        </div>
+      )}
+      <TaskEditor open={taskEditorOpen} lookups={lookups} onClose={() => setTaskEditorOpen(false)} />
+      <ActivityEditor open={activityEditorOpen} lookups={lookups} onClose={() => setActivityEditorOpen(false)} />
+    </>
+  );
+}
+
 function TasksPage() {
   const [editing, setEditing] = useState<CrmTask | null>();
   const [status, setStatus] = useState<TaskStatus | undefined>();
@@ -654,22 +1037,30 @@ function TasksPage() {
 }
 
 function TaskEditor({ open, task, lookups, onClose }: { open: boolean; task?: CrmTask; lookups: ReturnType<typeof useLookups>; onClose: () => void }) {
-  const [form] = Form.useForm<TaskInput>();
+  const [form] = Form.useForm<TaskInput & { dueAtLocal?: string }>();
   const mutation = useNotifyMutation((values: TaskInput) => task ? api.tasks.update(task.id, values) : api.tasks.create(values), ['tasks', 'dashboard']);
 
   useEffect(() => {
-    if (open) form.setFieldsValue(task ?? { status: 'New', priority: 'Normal' });
+    if (open) form.setFieldsValue(task ? { ...task, dueAtLocal: toLocalDateTimeInput(task.dueAt) } : { status: 'New', priority: 'Normal' });
   }, [form, open, task]);
 
   return (
     <Modal open={open} title={task ? 'Edit task' : 'New task'} onCancel={onClose} onOk={() => form.submit()} confirmLoading={mutation.isPending} destroyOnHidden>
-      <Form form={form} layout="vertical" onFinish={(values) => mutation.mutate(values, { onSuccess: onClose })}>
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={({ dueAtLocal, ...values }) => mutation.mutate({
+          ...values,
+          dueAt: toApiDateTime(dueAtLocal),
+        }, { onSuccess: onClose })}
+      >
         <Form.Item name="title" label="Title" rules={[{ required: true }]}><Input /></Form.Item>
         <Form.Item name="description" label="Description"><Input.TextArea rows={3} /></Form.Item>
         <Row gutter={12}>
           <Col span={12}><Form.Item name="status" label="Status"><Select options={enumOptions(taskStatuses)} /></Form.Item></Col>
           <Col span={12}><Form.Item name="priority" label="Priority"><Select options={enumOptions(taskPriorities)} /></Form.Item></Col>
         </Row>
+        <Form.Item name="dueAtLocal" label="Due"><Input type="datetime-local" /></Form.Item>
         <Row gutter={12}>
           <Col span={12}><Form.Item name="contactId" label="Contact"><Select allowClear options={lookups.contactOptions} /></Form.Item></Col>
           <Col span={12}><Form.Item name="companyId" label="Company"><Select allowClear options={lookups.companyOptions} /></Form.Item></Col>
@@ -693,7 +1084,7 @@ function TimelinePage() {
           items={(query.data ?? []).map((item) => ({
             color: item.type === 'SystemEvent' ? 'blue' : item.type === 'AgentAction' ? 'green' : 'gray',
             children: (
-              <Space direction="vertical" size={2}>
+              <Space orientation="vertical" size={2}>
                 <Space><Tag>{item.type}</Tag><Text strong>{item.title}</Text></Space>
                 <Text type="secondary">{[item.contactName, item.companyName, item.dealTitle].filter(Boolean).join(' · ') || 'General'}</Text>
                 {item.description && <Text>{item.description}</Text>}
@@ -734,24 +1125,208 @@ function ActivityEditor({ open, lookups, onClose }: { open: boolean; lookups: Re
 
 function MessagesPage() {
   const [open, setOpen] = useState(false);
-  const query = useQuery({ queryKey: ['messages'], queryFn: api.messages.list });
+  const [status, setStatus] = useState<ConversationStatus | 'All'>('All');
+  const [selectedId, setSelectedId] = useState<string>();
+  const [aiOpen, setAiOpen] = useState(true);
+  const [form] = Form.useForm<MessageInput>();
+  const query = useQuery({ queryKey: ['conversations'], queryFn: api.messages.conversations });
   const lookups = useLookups();
+  const create = useNotifyMutation(api.messages.create, ['conversations', 'messages', 'dashboard']);
 
-  const columns: ColumnsType<Message> = [
-    { title: 'Channel', dataIndex: 'channel', render: StatusTag },
-    { title: 'Direction', dataIndex: 'direction' },
-    { title: 'Contact', dataIndex: 'contactName' },
-    { title: 'Deal', dataIndex: 'dealTitle' },
-    { title: 'Text', dataIndex: 'text', ellipsis: true },
-    { title: 'Created', dataIndex: 'createdAt', render: formatDate },
-  ];
+  const conversations = query.data ?? [];
+  const filtered = conversations.filter((item) => status === 'All' || item.status === status);
+  const selected = conversations.find((item) => item.id === selectedId) ?? filtered[0] ?? conversations[0];
+
+  useEffect(() => {
+    if (!selectedId && selected?.id) {
+      setSelectedId(selected.id);
+    }
+  }, [selected?.id, selectedId]);
+
+  useEffect(() => {
+    if (selected) {
+      form.setFieldsValue({
+        channel: selected.lastChannel,
+        direction: 'Outgoing',
+        contactId: selected.contactId,
+        dealId: selected.dealId,
+      });
+    }
+  }, [form, selected]);
 
   return (
     <>
-      <PageTitle title="Messages" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>New message</Button>} />
-      <Table rowKey="id" loading={query.isLoading} dataSource={query.data} columns={columns} />
+      <PageTitle
+        title="Messages"
+        extra={(
+          <>
+            <Button icon={<RobotOutlined />} onClick={() => setAiOpen((value) => !value)}>{aiOpen ? 'Hide AI' : 'Show AI'}</Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>New message</Button>
+          </>
+        )}
+      />
+      <div className={`conversation-workspace ${aiOpen ? '' : 'ai-collapsed'}`}>
+        <aside className="conversation-list">
+          <Input.Search placeholder="Search contact, company, message" allowClear className="conversation-search" />
+          <Radio.Group value={status} onChange={(event) => setStatus(event.target.value)} className="conversation-filters">
+            <Radio.Button value="All">All {conversations.length}</Radio.Button>
+            {conversationStatuses.map((value) => (
+              <Radio.Button key={value} value={value}>{value} {conversations.filter((item) => item.status === value).length}</Radio.Button>
+            ))}
+          </Radio.Group>
+          <div className="conversation-list-scroll">
+            {filtered.map((conversation) => (
+              <button
+                type="button"
+                key={conversation.id}
+                className={`conversation-item ${selected?.id === conversation.id ? 'active' : ''}`}
+                onClick={() => setSelectedId(conversation.id)}
+              >
+                <span className="avatar-token">{(conversation.contactName ?? conversation.companyName ?? '?').slice(0, 2).toUpperCase()}</span>
+                <span className="conversation-item-main">
+                  <span className="conversation-row">
+                    <Text strong>{conversation.contactName ?? conversation.companyName ?? conversation.dealTitle ?? 'Unknown'}</Text>
+                    <Text type="secondary">{formatDate(conversation.lastMessageAt)}</Text>
+                  </span>
+                  <Text type="secondary" ellipsis>{conversation.lastMessageText}</Text>
+                  <span className="conversation-row">
+                    <Space size={4}><StatusTag value={conversation.lastChannel} /><StatusTag value={conversation.status} /></Space>
+                    {conversation.openTaskCount > 0 && <Tag color="gold">{conversation.openTaskCount} tasks</Tag>}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </aside>
+        <section className="conversation-thread">
+          {selected ? (
+            <>
+              <div className="thread-header">
+                <Space orientation="vertical" size={2}>
+                  <Title level={4}>{selected.contactName ?? selected.companyName ?? selected.dealTitle ?? 'Conversation'}</Title>
+                  <Text type="secondary">{linkedLabel(selected)} · {selected.messageCount} messages</Text>
+                </Space>
+                <Space><StatusTag value={selected.status} /><StatusTag value={selected.lastChannel} /></Space>
+              </div>
+              <div className="message-timeline">
+                {selected.messages.map((item) => (
+                  <div key={item.id} className={`message-row ${item.direction === 'Outgoing' ? 'outgoing' : 'incoming'}`}>
+                    <div className="message-meta">
+                      <Text type="secondary">{item.contactName ?? item.direction}</Text>
+                      <Text type="secondary">{item.channel} · {formatDate(item.receivedAt ?? item.sentAt ?? item.createdAt)}</Text>
+                    </div>
+                    <div className="message-bubble">{item.text}</div>
+                  </div>
+                ))}
+              </div>
+              <Form
+                form={form}
+                className="message-composer"
+                layout="vertical"
+                onFinish={(values) => create.mutate(values, { onSuccess: () => form.setFieldValue('text', '') })}
+              >
+                <Row gutter={8}>
+                  <Col xs={24} md={8}><Form.Item name="channel" noStyle><Select options={enumOptions(messageChannels)} /></Form.Item></Col>
+                  <Col xs={24} md={8}><Form.Item name="direction" noStyle><Select options={enumOptions(messageDirections)} /></Form.Item></Col>
+                  <Col xs={24} md={8}><Button icon={<SendOutlined />} type="primary" htmlType="submit" block>Send</Button></Col>
+                </Row>
+                <Form.Item name="contactId" hidden><Input /></Form.Item>
+                <Form.Item name="dealId" hidden><Input /></Form.Item>
+                <Form.Item name="text" rules={[{ required: true }]}><Input.TextArea rows={3} placeholder="Write a message..." /></Form.Item>
+              </Form>
+            </>
+          ) : (
+            <Empty description="No conversations yet" />
+          )}
+        </section>
+        {aiOpen && <ContextualAiPanel conversation={selected} />}
+      </div>
       <MessageEditor open={open} lookups={lookups} onClose={() => setOpen(false)} />
     </>
+  );
+}
+
+function ContextualAiPanel({ conversation }: { conversation?: Conversation }) {
+  const [prompt, setPrompt] = useState('');
+  const lookups = useLookups();
+  const actions = useQuery({ queryKey: ['agentActions'], queryFn: api.agentActions.list });
+  const createAction = useNotifyMutation(api.agentActions.create, ['agentActions', 'approvals', 'dashboard']);
+  const approve = useNotifyMutation(api.agentActions.approve, ['agentActions', 'approvals', 'dashboard']);
+  const reject = useNotifyMutation(api.agentActions.reject, ['agentActions', 'approvals', 'dashboard']);
+  const execute = useNotifyMutation(api.agentActions.execute, ['agentActions', 'messages', 'activities', 'tasks', 'dashboard']);
+  const defaultAgent = (lookups.agents.data ?? []).find((agent) => agent.isActive) ?? lookups.agents.data?.[0];
+  const relatedActions = (actions.data ?? [])
+    .filter((action) =>
+      conversation &&
+      (action.targetEntityId === conversation.contactId || action.targetEntityId === conversation.dealId || action.targetEntityId == null) &&
+      ['DraftMessage', 'SendMessage', 'AddNote', 'CreateTask'].includes(action.actionType))
+    .slice(0, 5);
+
+  const proposeDraft = () => {
+    if (!conversation || !defaultAgent) {
+      message.warning('Create an active agent first.');
+      return;
+    }
+
+    const text = prompt.trim() || `Prepare a concise reply for ${conversation.contactName ?? conversation.companyName ?? 'this conversation'}.`;
+    createAction.mutate({
+      agentId: defaultAgent.id,
+      actionType: 'DraftMessage',
+      targetEntityType: conversation.contactId ? 'Contact' : conversation.dealId ? 'Deal' : undefined,
+      targetEntityId: conversation.contactId ?? conversation.dealId ?? undefined,
+      inputJson: JSON.stringify({
+        channel: conversation.lastChannel,
+        direction: 'Outgoing',
+        contactId: conversation.contactId,
+        dealId: conversation.dealId,
+        text,
+      }),
+      reasoningSummary: `Draft reply for ${conversation.contactName ?? conversation.companyName ?? conversation.dealTitle ?? 'conversation'}.`,
+      requiresApproval: true,
+    }, { onSuccess: () => setPrompt('') });
+  };
+
+  return (
+    <aside className="ai-panel">
+      <div className="ai-panel-header">
+        <Space>
+          <RobotOutlined />
+          <Text strong>AI assistant</Text>
+        </Space>
+        <Tag color="gold">Approval first</Tag>
+      </div>
+      <Text type="secondary">
+        {conversation ? `Context: ${conversation.contactName ?? conversation.companyName ?? conversation.dealTitle ?? conversation.id}` : 'Select a conversation to give the agent context.'}
+      </Text>
+      <Input.TextArea
+        rows={4}
+        value={prompt}
+        onChange={(event) => setPrompt(event.target.value)}
+        placeholder="Ask the agent to draft a reply or summarize the next step..."
+      />
+      <Button type="primary" icon={<RobotOutlined />} disabled={!conversation} onClick={proposeDraft}>Propose draft</Button>
+      <Divider />
+      <Text strong>Recent proposed actions</Text>
+      <SimpleList
+        items={relatedActions}
+        className="ai-action-list"
+        getKey={(action) => action.id}
+        renderItem={(action) => (
+          <Space orientation="vertical" size={6} style={{ width: '100%' }}>
+            <Space className="spread">
+              <Text>{action.actionType}</Text>
+              <StatusTag value={action.status} />
+            </Space>
+            <Text type="secondary" ellipsis>{action.reasoningSummary ?? action.inputJson}</Text>
+            <Space>
+              <Button size="small" icon={<CheckOutlined />} disabled={!['Proposed', 'Failed'].includes(action.status)} onClick={() => approve.mutate(action.id)} />
+              <Button size="small" danger icon={<CloseOutlined />} disabled={!['Proposed', 'Approved'].includes(action.status)} onClick={() => reject.mutate(action.id)} />
+              <Button size="small" type="primary" disabled={action.requiresApproval && !['Approved', 'Failed'].includes(action.status)} onClick={() => execute.mutate(action.id)}>Run</Button>
+            </Space>
+          </Space>
+        )}
+      />
+    </aside>
   );
 }
 
@@ -854,9 +1429,9 @@ function AgentActionsPage() {
       <PageTitle title="Agent Actions" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>New action</Button>} />
       <Table rowKey="id" loading={query.isLoading} dataSource={query.data} columns={columns} />
       <AgentActionEditor open={open} onClose={() => setOpen(false)} />
-      <Drawer open={Boolean(viewing)} title={viewing?.actionType} onClose={() => setViewing(null)} width={720}>
+      <Drawer open={Boolean(viewing)} title={viewing?.actionType} onClose={() => setViewing(null)} size="large">
         {viewing && (
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             <Descriptions column={1} bordered size="small">
               <Descriptions.Item label="Status"><StatusTag value={viewing.status} /></Descriptions.Item>
               <Descriptions.Item label="Agent">{viewing.agentName ?? viewing.agentId}</Descriptions.Item>

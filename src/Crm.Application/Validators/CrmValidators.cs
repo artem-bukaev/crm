@@ -149,6 +149,28 @@ public sealed class CreateMessageRequestValidator : AbstractValidator<CreateMess
     }
 }
 
+public sealed class MergeContactsRequestValidator : AbstractValidator<MergeContactsRequest>
+{
+    public MergeContactsRequestValidator()
+    {
+        RuleFor(x => x.PrimaryContactId).NotEmpty();
+        RuleFor(x => x.DuplicateContactId).NotEmpty();
+        RuleFor(x => x).Must(x => x.PrimaryContactId != x.DuplicateContactId)
+            .WithMessage("PrimaryContactId and DuplicateContactId must be different.");
+    }
+}
+
+public sealed class BulkCreateTaskRequestValidator : AbstractValidator<BulkCreateTaskRequest>
+{
+    public BulkCreateTaskRequestValidator()
+    {
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(256);
+        RuleFor(x => x.Priority).IsInEnum();
+        RuleFor(x => x.ContactIds.Count + x.DealIds.Count).InclusiveBetween(1, 100)
+            .WithMessage("Bulk operation must target between 1 and 100 records.");
+    }
+}
+
 public sealed class CreateAgentRequestValidator : AbstractValidator<CreateAgentRequest>
 {
     public CreateAgentRequestValidator()

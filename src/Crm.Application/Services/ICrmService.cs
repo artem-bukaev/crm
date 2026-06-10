@@ -12,6 +12,9 @@ public interface ICrmService
     Task<ContactDto> CreateContactAsync(CreateContactRequest request, CancellationToken cancellationToken = default);
     Task<ContactDto> UpdateContactAsync(Guid id, UpdateContactRequest request, CancellationToken cancellationToken = default);
     Task DeleteContactAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ContactDuplicateCandidateDto>> GetContactDuplicatesAsync(CancellationToken cancellationToken = default);
+    Task<ContactDto> MergeContactsAsync(MergeContactsRequest request, CancellationToken cancellationToken = default);
+    Task<BulkOperationResultDto> BulkCreateContactTasksAsync(BulkCreateTaskRequest request, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<CompanyDto>> GetCompaniesAsync(CancellationToken cancellationToken = default);
     Task<CompanyDto> GetCompanyAsync(Guid id, CancellationToken cancellationToken = default);
@@ -37,6 +40,7 @@ public interface ICrmService
     Task<DealDto> MarkDealWonAsync(Guid id, CancellationToken cancellationToken = default);
     Task<DealDto> MarkDealLostAsync(Guid id, CancellationToken cancellationToken = default);
     Task DeleteDealAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<BulkOperationResultDto> BulkCreateDealTasksAsync(BulkCreateTaskRequest request, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<TaskDto>> GetTasksAsync(CrmTaskStatus? status, CancellationToken cancellationToken = default);
     Task<TaskDto> GetTaskAsync(Guid id, CancellationToken cancellationToken = default);
@@ -48,9 +52,11 @@ public interface ICrmService
 
     Task<IReadOnlyList<ActivityDto>> GetActivitiesAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ActivityDto>> GetTimelineAsync(Guid? contactId, Guid? companyId, Guid? dealId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<WorkQueueItemDto>> GetWorkQueueAsync(CancellationToken cancellationToken = default);
     Task<ActivityDto> CreateActivityAsync(CreateActivityRequest request, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<MessageDto>> GetMessagesAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ConversationDto>> GetConversationsAsync(CancellationToken cancellationToken = default);
     Task<MessageDto> GetMessageAsync(Guid id, CancellationToken cancellationToken = default);
     Task<MessageDto> CreateMessageAsync(CreateMessageRequest request, CancellationToken cancellationToken = default);
 

@@ -250,6 +250,82 @@ public sealed record MessageDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 
+public sealed record ConversationDto(
+    string Id,
+    Guid? ContactId,
+    string? ContactName,
+    Guid? CompanyId,
+    string? CompanyName,
+    Guid? DealId,
+    string? DealTitle,
+    MessageChannel LastChannel,
+    MessageDirection LastDirection,
+    string LastMessageText,
+    DateTimeOffset LastMessageAt,
+    ConversationStatus Status,
+    int MessageCount,
+    int OpenTaskCount,
+    IReadOnlyList<MessageDto> Messages);
+
+public sealed record WorkQueueItemDto(
+    string Id,
+    WorkQueueItemType Type,
+    Guid SourceId,
+    string Title,
+    string? Description,
+    ActivityType? ActivityType,
+    CrmTaskStatus? TaskStatus,
+    CrmTaskPriority? Priority,
+    DateTimeOffset? DueAt,
+    DateTimeOffset? StartedAt,
+    Guid? ContactId,
+    string? ContactName,
+    Guid? CompanyId,
+    string? CompanyName,
+    Guid? DealId,
+    string? DealTitle,
+    Guid? ResponsibleUserId,
+    WorkQueueBucket Bucket,
+    bool IsOverdue,
+    DateTimeOffset SortAt);
+
+public sealed record ContactDuplicateCandidateDto(
+    string Id,
+    ContactDto PrimaryContact,
+    ContactDto DuplicateContact,
+    int Confidence,
+    string Reason);
+
+public sealed class MergeContactsRequest
+{
+    public Guid PrimaryContactId { get; set; }
+    public Guid DuplicateContactId { get; set; }
+}
+
+public sealed class BulkCreateTaskRequest
+{
+    public IReadOnlyList<Guid> ContactIds { get; set; } = [];
+    public IReadOnlyList<Guid> DealIds { get; set; } = [];
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public DateTimeOffset? DueAt { get; set; }
+    public CrmTaskPriority Priority { get; set; } = CrmTaskPriority.Normal;
+    public Guid? ResponsibleUserId { get; set; }
+}
+
+public sealed record BulkOperationItemResultDto(
+    Guid TargetId,
+    CrmEntityType TargetType,
+    bool Succeeded,
+    string? Message,
+    Guid? CreatedTaskId);
+
+public sealed record BulkOperationResultDto(
+    int Requested,
+    int Succeeded,
+    int Failed,
+    IReadOnlyList<BulkOperationItemResultDto> Items);
+
 public class CreateAgentRequest
 {
     public string Name { get; set; } = string.Empty;

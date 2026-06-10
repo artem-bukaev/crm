@@ -40,6 +40,18 @@ public sealed class ContactsController(ICrmService crm) : ControllerBase
         await crm.DeleteContactAsync(id, cancellationToken);
         return NoContent();
     }
+
+    [HttpGet("duplicates")]
+    public Task<IReadOnlyList<ContactDuplicateCandidateDto>> Duplicates(CancellationToken cancellationToken) =>
+        crm.GetContactDuplicatesAsync(cancellationToken);
+
+    [HttpPost("merge")]
+    public Task<ContactDto> Merge(MergeContactsRequest request, CancellationToken cancellationToken) =>
+        crm.MergeContactsAsync(request, cancellationToken);
+
+    [HttpPost("bulk/create-task")]
+    public Task<BulkOperationResultDto> BulkCreateTask(BulkCreateTaskRequest request, CancellationToken cancellationToken) =>
+        crm.BulkCreateContactTasksAsync(request, cancellationToken);
 }
 
 [ApiController]
@@ -166,6 +178,10 @@ public sealed class DealsController(ICrmService crm) : ControllerBase
         await crm.DeleteDealAsync(id, cancellationToken);
         return NoContent();
     }
+
+    [HttpPost("bulk/create-task")]
+    public Task<BulkOperationResultDto> BulkCreateTask(BulkCreateTaskRequest request, CancellationToken cancellationToken) =>
+        crm.BulkCreateDealTasksAsync(request, cancellationToken);
 }
 
 [ApiController]
@@ -215,6 +231,10 @@ public sealed class ActivitiesController(ICrmService crm) : ControllerBase
     public Task<IReadOnlyList<ActivityDto>> Timeline([FromQuery] Guid? contactId, [FromQuery] Guid? companyId, [FromQuery] Guid? dealId, CancellationToken cancellationToken) =>
         crm.GetTimelineAsync(contactId, companyId, dealId, cancellationToken);
 
+    [HttpGet("work-queue")]
+    public Task<IReadOnlyList<WorkQueueItemDto>> WorkQueue(CancellationToken cancellationToken) =>
+        crm.GetWorkQueueAsync(cancellationToken);
+
     [HttpPost]
     public Task<ActivityDto> Create(CreateActivityRequest request, CancellationToken cancellationToken) =>
         crm.CreateActivityAsync(request, cancellationToken);
@@ -226,6 +246,10 @@ public sealed class MessagesController(ICrmService crm) : ControllerBase
 {
     [HttpGet]
     public Task<IReadOnlyList<MessageDto>> Get(CancellationToken cancellationToken) => crm.GetMessagesAsync(cancellationToken);
+
+    [HttpGet("conversations")]
+    public Task<IReadOnlyList<ConversationDto>> Conversations(CancellationToken cancellationToken) =>
+        crm.GetConversationsAsync(cancellationToken);
 
     [HttpGet("{id:guid}")]
     public Task<MessageDto> Get(Guid id, CancellationToken cancellationToken) => crm.GetMessageAsync(id, cancellationToken);

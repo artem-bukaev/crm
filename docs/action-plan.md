@@ -12,17 +12,19 @@
 
 ## P0 - Conversation Workspace
 
+Status: implemented as a first MVP slice.
+
 Цель: превратить `Messages` в полноценный inbox для коммуникаций с клиентами.
 
 MVP-срез:
 
-- Список диалогов слева: контакт, компания, последнее сообщение, канал, время.
-- Статусы диалога: `Unread`, `WaitingOnUs`, `WaitingOnThem`, `Closed`.
-- Фильтры: all, unread, waiting on us, waiting on them.
-- Центральный timeline сообщений по выбранному диалогу.
-- Composer с выбором канала и получателя.
-- Draft message через `AgentActionType.DraftMessage`.
-- Send message через `AgentActionType.SendMessage` с human approval до реальной интеграции.
+- Список диалогов слева: контакт, компания, последнее сообщение, канал, время. Done.
+- Вычисляемые статусы диалога: `Unread`, `WaitingOnUs`, `WaitingOnThem`, `Closed`. Done.
+- Фильтры: all, unread, waiting on us, waiting on them. Done.
+- Центральный timeline сообщений по выбранному диалогу. Done.
+- Composer с выбором канала и получателя. Done.
+- Draft message через `AgentActionType.DraftMessage`. Done through contextual AI panel.
+- Send message через `AgentActionType.SendMessage` с human approval до реальной интеграции. Partially done: action layer exists, UI focuses on draft proposal first.
 
 Backend notes:
 
@@ -42,15 +44,17 @@ Definition of done:
 
 ## P0 - Activities Work Queue
 
+Status: implemented as a first MVP slice.
+
 Цель: сделать `Tasks` и `Activities` главным рабочим списком на день.
 
 MVP-срез:
 
-- Единый экран `Activities` с задачами, встречами, звонками и заметками.
-- Быстрые chips: overdue, due today, this week, unassigned.
-- Фильтры: mine, team, status, type, priority.
-- Переключатель представления: table / grouped.
-- Быстрые действия: complete, cancel, edit, create follow-up.
+- Единый экран `Activities` с задачами и последними значимыми активностями. Done.
+- Быстрые chips: overdue, due today, this week, unassigned. Done.
+- Фильтры: type and bucket. Done; mine/team/status can follow after users/RBAC.
+- Переключатель представления: table / grouped. Done.
+- Быстрые действия: complete, cancel, create task/activity. Done.
 
 Backend notes:
 
@@ -69,15 +73,17 @@ Definition of done:
 
 ## P1 - Contextual AI Side Panel
 
+Status: implemented as a first MVP slice on the conversation workspace.
+
 Цель: дать агенту контекст текущего экрана и безопасные предлагаемые действия.
 
 MVP-срез:
 
-- Collapsible AI drawer справа.
-- Контекст: текущая страница, выбранный контакт/сделка/диалог/задача.
-- Командная строка: свободный запрос или slash-like команды.
-- Список предложенных `AgentAction` с approve/reject/execute.
-- Видимый `ReasoningSummary`, без chain-of-thought.
+- Collapsible AI panel справа. Done for conversations.
+- Контекст: текущий диалог/contact/deal. Done.
+- Командная строка: свободный запрос. Done.
+- Список предложенных `AgentAction` с approve/reject/execute. Done.
+- Видимый `ReasoningSummary`, без chain-of-thought. Done.
 
 Backend notes:
 
@@ -96,15 +102,17 @@ Definition of done:
 
 ## P1 - Contact Duplicates and Merge Queue
 
+Status: implemented as a first MVP slice.
+
 Цель: снизить мусор в базе контактов.
 
 MVP-срез:
 
-- Endpoint поиска потенциальных дублей.
-- Правила первого среза: exact email, exact phone, normalized full name + company.
-- UI badge/button `Duplicates` на экране контактов.
-- Очередь дублей: candidate A, candidate B, confidence, reason.
-- Действия: merge, ignore.
+- Endpoint поиска потенциальных дублей. Done.
+- Правила первого среза: exact email, exact phone, normalized full name + company. Done.
+- UI badge/button `Duplicates` на экране контактов. Done.
+- Очередь дублей: candidate A, candidate B, confidence, reason. Done.
+- Действия: merge, ignore. Merge done; ignore still needs persistence/policy.
 
 Backend notes:
 
@@ -118,12 +126,14 @@ Definition of done:
 
 ## P1 - Bulk Actions for Contacts and Deals
 
+Status: implemented as a first MVP slice.
+
 Цель: ускорить массовую операционную работу.
 
 MVP-срез:
 
-- Row selection в таблицах контактов и сделок.
-- Bulk create task.
+- Row selection в таблицах контактов и сделок. Done.
+- Bulk create task. Done.
 - Bulk assign responsible user.
 - Bulk add note/activity.
 - Bulk propose agent action.
@@ -185,14 +195,14 @@ Items:
 
 ## Suggested Implementation Order
 
-1. Conversation projection + inbox UI skeleton.
-2. Conversation filters and status updates.
-3. Draft/send message agent actions in the inbox.
-4. Activities work queue projection + table view.
-5. Activities grouped view and quick actions.
-6. Collapsible AI side panel shared component.
-7. Contact duplicate detection endpoint + UI queue.
-8. Contact/deal bulk actions.
+1. Conversation projection + inbox UI skeleton. Done.
+2. Conversation filters and status updates. Done.
+3. Draft/send message agent actions in the inbox. Draft proposal done; send approval UI can be expanded.
+4. Activities work queue projection + table view. Done.
+5. Activities grouped view and quick actions. Done.
+6. Collapsible AI side panel shared component. Done for conversation workspace.
+7. Contact duplicate detection endpoint + UI queue. Done.
+8. Contact/deal bulk actions. Bulk task done.
 9. Products/offers catalog.
 10. Campaigns/prospects module.
 11. Production safety hardening.

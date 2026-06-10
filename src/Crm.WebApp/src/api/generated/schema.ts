@@ -109,6 +109,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/activities/work-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["WorkQueueItemDto"][];
+                        "application/json": components["schemas"]["WorkQueueItemDto"][];
+                        "text/json": components["schemas"]["WorkQueueItemDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent-actions": {
         parameters: {
             query?: never;
@@ -902,6 +939,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/contacts/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ContactDuplicateCandidateDto"][];
+                        "application/json": components["schemas"]["ContactDuplicateCandidateDto"][];
+                        "text/json": components["schemas"]["ContactDuplicateCandidateDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/contacts/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["MergeContactsRequest"];
+                    "text/json": components["schemas"]["MergeContactsRequest"];
+                    "application/*+json": components["schemas"]["MergeContactsRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ContactDto"];
+                        "application/json": components["schemas"]["ContactDto"];
+                        "text/json": components["schemas"]["ContactDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/contacts/bulk/create-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["BulkCreateTaskRequest"];
+                    "text/json": components["schemas"]["BulkCreateTaskRequest"];
+                    "application/*+json": components["schemas"]["BulkCreateTaskRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BulkOperationResultDto"];
+                        "application/json": components["schemas"]["BulkOperationResultDto"];
+                        "text/json": components["schemas"]["BulkOperationResultDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dashboard": {
         parameters: {
             query?: never;
@@ -1213,6 +1373,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/deals/bulk/create-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["BulkCreateTaskRequest"];
+                    "text/json": components["schemas"]["BulkCreateTaskRequest"];
+                    "application/*+json": components["schemas"]["BulkCreateTaskRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["BulkOperationResultDto"];
+                        "application/json": components["schemas"]["BulkOperationResultDto"];
+                        "text/json": components["schemas"]["BulkOperationResultDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/messages": {
         parameters: {
             query?: never;
@@ -1271,6 +1474,43 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ConversationDto"][];
+                        "application/json": components["schemas"]["ConversationDto"][];
+                        "text/json": components["schemas"]["ConversationDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1937,6 +2177,35 @@ export interface components {
         };
         /** @enum {string} */
         ApprovalStatus: "Pending" | "Approved" | "Rejected" | "Canceled";
+        BulkCreateTaskRequest: {
+            contactIds?: string[] | null;
+            dealIds?: string[] | null;
+            title?: string | null;
+            description?: string | null;
+            /** Format: date-time */
+            dueAt?: string | null;
+            priority?: components["schemas"]["CrmTaskPriority"];
+            /** Format: uuid */
+            responsibleUserId?: string | null;
+        };
+        BulkOperationItemResultDto: {
+            /** Format: uuid */
+            targetId?: string;
+            targetType?: components["schemas"]["CrmEntityType"];
+            succeeded?: boolean;
+            message?: string | null;
+            /** Format: uuid */
+            createdTaskId?: string | null;
+        };
+        BulkOperationResultDto: {
+            /** Format: int32 */
+            requested?: number;
+            /** Format: int32 */
+            succeeded?: number;
+            /** Format: int32 */
+            failed?: number;
+            items?: components["schemas"]["BulkOperationItemResultDto"][] | null;
+        };
         CompanyDto: {
             /** Format: uuid */
             id?: string;
@@ -1973,8 +2242,41 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        ContactDuplicateCandidateDto: {
+            id?: string | null;
+            primaryContact?: components["schemas"]["ContactDto"];
+            duplicateContact?: components["schemas"]["ContactDto"];
+            /** Format: int32 */
+            confidence?: number;
+            reason?: string | null;
+        };
         /** @enum {string} */
         ContactStatus: "Lead" | "Active" | "Inactive" | "Archived";
+        ConversationDto: {
+            id?: string | null;
+            /** Format: uuid */
+            contactId?: string | null;
+            contactName?: string | null;
+            /** Format: uuid */
+            companyId?: string | null;
+            companyName?: string | null;
+            /** Format: uuid */
+            dealId?: string | null;
+            dealTitle?: string | null;
+            lastChannel?: components["schemas"]["MessageChannel"];
+            lastDirection?: components["schemas"]["MessageDirection"];
+            lastMessageText?: string | null;
+            /** Format: date-time */
+            lastMessageAt?: string;
+            status?: components["schemas"]["ConversationStatus"];
+            /** Format: int32 */
+            messageCount?: number;
+            /** Format: int32 */
+            openTaskCount?: number;
+            messages?: components["schemas"]["MessageDto"][] | null;
+        };
+        /** @enum {string} */
+        ConversationStatus: "Unread" | "WaitingOnUs" | "WaitingOnThem" | "Closed";
         CreateActivityRequest: {
             type?: components["schemas"]["ActivityType"];
             title?: string | null;
@@ -2148,8 +2450,14 @@ export interface components {
         };
         /** @enum {string} */
         DealStatus: "Open" | "Won" | "Lost" | "Canceled";
+        MergeContactsRequest: {
+            /** Format: uuid */
+            primaryContactId?: string;
+            /** Format: uuid */
+            duplicateContactId?: string;
+        };
         /** @enum {string} */
-        MessageChannel: "Email" | "Telegram" | "WhatsApp" | "WebsiteChat" | "Manual";
+        MessageChannel: "Email" | "Telegram" | "WhatsApp" | "LinkedIn" | "WebsiteChat" | "Manual";
         /** @enum {string} */
         MessageDirection: "Incoming" | "Outgoing";
         MessageDto: {
@@ -2310,6 +2618,40 @@ export interface components {
             /** Format: uuid */
             responsibleUserId?: string | null;
         };
+        /** @enum {string} */
+        WorkQueueBucket: "Overdue" | "DueToday" | "ThisWeek" | "Upcoming" | "Unassigned";
+        WorkQueueItemDto: {
+            id?: string | null;
+            type?: components["schemas"]["WorkQueueItemType"];
+            /** Format: uuid */
+            sourceId?: string;
+            title?: string | null;
+            description?: string | null;
+            activityType?: components["schemas"]["ActivityType"];
+            taskStatus?: components["schemas"]["CrmTaskStatus"];
+            priority?: components["schemas"]["CrmTaskPriority"];
+            /** Format: date-time */
+            dueAt?: string | null;
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: uuid */
+            contactId?: string | null;
+            contactName?: string | null;
+            /** Format: uuid */
+            companyId?: string | null;
+            companyName?: string | null;
+            /** Format: uuid */
+            dealId?: string | null;
+            dealTitle?: string | null;
+            /** Format: uuid */
+            responsibleUserId?: string | null;
+            bucket?: components["schemas"]["WorkQueueBucket"];
+            isOverdue?: boolean;
+            /** Format: date-time */
+            sortAt?: string;
+        };
+        /** @enum {string} */
+        WorkQueueItemType: "Task" | "Activity";
     };
     responses: never;
     parameters: never;

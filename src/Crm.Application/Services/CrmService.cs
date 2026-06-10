@@ -68,6 +68,124 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public Task<IReadOnlyList<ContactDuplicateCandidateDto>> GetContactDuplicatesAsync(CancellationToken cancellationToken = default)
+    {
+        var contacts = Active<Contact>()
+            .ToList()
+            .OrderBy(x => x.CreatedAt)
+            .ToList();
+
+        var candidates = new List<ContactDuplicateCandidateDto>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var i = 0; i < contacts.Count; i++)
+        {
+            for (var j = i + 1; j < contacts.Count; j++)
+            {
+                var primary = contacts[i];
+                var duplicate = contacts[j];
+                var match = ResolveDuplicateMatch(primary, duplicate);
+                if (match is null)
+                {
+                    continue;
+                }
+
+                var key = $"{primary.Id:N}:{duplicate.Id:N}";
+                if (!seen.Add(key))
+                {
+                    continue;
+                }
+
+                candidates.Add(new ContactDuplicateCandidateDto(
+                    key,
+                    MapContact(primary),
+                    MapContact(duplicate),
+                    match.Value.Confidence,
+                    match.Value.Reason));
+            }
+        }
+
+        return Task.FromResult<IReadOnlyList<ContactDuplicateCandidateDto>>(candidates
+            .OrderByDescending(x => x.Confidence)
+            .ThenBy(x => x.PrimaryContact.FullName)
+            .ToList());
+    }
+
+    public async Task<ContactDto> MergeContactsAsync(MergeContactsRequest request, CancellationToken cancellationToken = default)
+    {
+        var primary = GetRequired<Contact>(request.PrimaryContactId, "Primary contact");
+        var duplicate = GetRequired<Contact>(request.DuplicateContactId, "Duplicate contact");
+
+        primary.FirstName ??= duplicate.FirstName;
+        primary.LastName ??= duplicate.LastName;
+        primary.MiddleName ??= duplicate.MiddleName;
+        primary.Phone ??= duplicate.Phone;
+        primary.Email ??= duplicate.Email;
+        primary.TelegramUsername ??= duplicate.TelegramUsername;
+        primary.CompanyId ??= duplicate.CompanyId;
+        primary.Position ??= duplicate.Position;
+        primary.Source ??= duplicate.Source;
+        if (primary.Status is ContactStatus.Lead && duplicate.Status is not ContactStatus.Lead)
+        {
+            primary.Status = duplicate.Status;
+        }
+
+        foreach (var deal in Active<Deal>().Where(x => x.ContactId == duplicate.Id))
+        {
+            deal.ContactId = primary.Id;
+            deal.CompanyId ??= primary.CompanyId;
+        }
+
+        foreach (var task in Active<CrmTask>().Where(x => x.ContactId == duplicate.Id))
+        {
+            task.ContactId = primary.Id;
+            task.CompanyId ??= primary.CompanyId;
+        }
+
+        foreach (var activity in Active<Activity>().Where(x => x.ContactId == duplicate.Id))
+        {
+            activity.ContactId = primary.Id;
+            activity.CompanyId ??= primary.CompanyId;
+        }
+
+        foreach (var message in Active<Message>().Where(x => x.ContactId == duplicate.Id))
+        {
+            message.ContactId = primary.Id;
+        }
+
+        duplicate.IsDeleted = true;
+        await db.SaveChangesAsync(cancellationToken);
+
+        return MapContact(primary);
+    }
+
+    public Task<BulkOperationResultDto> BulkCreateContactTasksAsync(BulkCreateTaskRequest request, CancellationToken cancellationToken = default) =>
+        BulkCreateTasksAsync(
+            request.ContactIds.Distinct().ToList(),
+            CrmEntityType.Contact,
+            request,
+            id =>
+            {
+                var contact = Active<Contact>().FirstOrDefault(x => x.Id == id);
+                if (contact is null)
+                {
+                    return (false, "Contact was not found.", null);
+                }
+
+                return (true, null, new CrmTask
+                {
+                    Title = request.Title.Trim(),
+                    Description = Trim(request.Description),
+                    DueAt = request.DueAt,
+                    Status = CrmTaskStatus.New,
+                    Priority = request.Priority,
+                    ContactId = contact.Id,
+                    CompanyId = contact.CompanyId,
+                    ResponsibleUserId = request.ResponsibleUserId
+                });
+            },
+            cancellationToken);
+
     public Task<IReadOnlyList<CompanyDto>> GetCompaniesAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<CompanyDto>>(Active<Company>()
             .OrderBy(x => x.Name)
@@ -313,6 +431,34 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public Task<BulkOperationResultDto> BulkCreateDealTasksAsync(BulkCreateTaskRequest request, CancellationToken cancellationToken = default) =>
+        BulkCreateTasksAsync(
+            request.DealIds.Distinct().ToList(),
+            CrmEntityType.Deal,
+            request,
+            id =>
+            {
+                var deal = Active<Deal>().FirstOrDefault(x => x.Id == id);
+                if (deal is null)
+                {
+                    return (false, "Deal was not found.", null);
+                }
+
+                return (true, null, new CrmTask
+                {
+                    Title = request.Title.Trim(),
+                    Description = Trim(request.Description),
+                    DueAt = request.DueAt,
+                    Status = CrmTaskStatus.New,
+                    Priority = request.Priority,
+                    ContactId = deal.ContactId,
+                    CompanyId = deal.CompanyId,
+                    DealId = deal.Id,
+                    ResponsibleUserId = request.ResponsibleUserId
+                });
+            },
+            cancellationToken);
+
     public Task<IReadOnlyList<TaskDto>> GetTasksAsync(CrmTaskStatus? status, CancellationToken cancellationToken = default)
     {
         var query = Active<CrmTask>();
@@ -413,6 +559,28 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
             .ToList());
     }
 
+    public Task<IReadOnlyList<WorkQueueItemDto>> GetWorkQueueAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var recentActivityCutoff = now.AddDays(-30);
+        var items = new List<WorkQueueItemDto>();
+
+        items.AddRange(Active<CrmTask>()
+            .Where(x => x.Status == CrmTaskStatus.New || x.Status == CrmTaskStatus.InProgress)
+            .ToList()
+            .Select(x => MapWorkQueueTask(x, now)));
+
+        items.AddRange(Active<Activity>()
+            .ToList()
+            .Where(x => x.CreatedAt >= recentActivityCutoff && x.Type != ActivityType.Note)
+            .Select(x => MapWorkQueueActivity(x, now)));
+
+        return Task.FromResult<IReadOnlyList<WorkQueueItemDto>>(items
+            .OrderBy(x => x.Bucket)
+            .ThenBy(x => x.SortAt)
+            .ToList());
+    }
+
     public async Task<ActivityDto> CreateActivityAsync(CreateActivityRequest request, CancellationToken cancellationToken = default)
     {
         EnsureTaskReferences(request.ContactId, request.CompanyId, request.DealId);
@@ -431,6 +599,18 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
             .ToList()
             .Select(MapMessage)
             .ToList());
+
+    public Task<IReadOnlyList<ConversationDto>> GetConversationsAsync(CancellationToken cancellationToken = default)
+    {
+        var conversations = Active<Message>()
+            .ToList()
+            .GroupBy(GetConversationId)
+            .Select(MapConversation)
+            .OrderByDescending(x => x.LastMessageAt)
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<ConversationDto>>(conversations);
+    }
 
     public Task<MessageDto> GetMessageAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(MapMessage(GetRequired<Message>(id, "Message")));
@@ -713,6 +893,157 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
         Active<TEntity>().FirstOrDefault(x => x.Id == id)
         ?? throw new NotFoundException($"{name} {id} was not found.");
 
+    private async Task<BulkOperationResultDto> BulkCreateTasksAsync(
+        IReadOnlyList<Guid> targetIds,
+        CrmEntityType targetType,
+        BulkCreateTaskRequest request,
+        Func<Guid, (bool Succeeded, string? Message, CrmTask? Task)> createTask,
+        CancellationToken cancellationToken)
+    {
+        var results = new List<BulkOperationItemResultDto>();
+        var createdTasks = new List<CrmTask>();
+
+        foreach (var targetId in targetIds)
+        {
+            var result = createTask(targetId);
+            if (!result.Succeeded || result.Task is null)
+            {
+                results.Add(new BulkOperationItemResultDto(targetId, targetType, false, result.Message, null));
+                continue;
+            }
+
+            db.Add(result.Task);
+            createdTasks.Add(result.Task);
+            results.Add(new BulkOperationItemResultDto(targetId, targetType, true, null, result.Task.Id));
+        }
+
+        if (createdTasks.Count > 0)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return new BulkOperationResultDto(
+            targetIds.Count,
+            results.Count(x => x.Succeeded),
+            results.Count(x => !x.Succeeded),
+            results);
+    }
+
+    private static (int Confidence, string Reason)? ResolveDuplicateMatch(Contact a, Contact b)
+    {
+        if (!string.IsNullOrWhiteSpace(a.Email) &&
+            !string.IsNullOrWhiteSpace(b.Email) &&
+            string.Equals(a.Email.Trim(), b.Email.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return (100, "Same email");
+        }
+
+        var aPhone = NormalizePhone(a.Phone);
+        var bPhone = NormalizePhone(b.Phone);
+        if (aPhone.Length >= 7 && aPhone == bPhone)
+        {
+            return (95, "Same phone");
+        }
+
+        var aName = NormalizeName(a);
+        var bName = NormalizeName(b);
+        if (a.CompanyId is not null &&
+            a.CompanyId == b.CompanyId &&
+            aName.Length > 0 &&
+            aName == bName)
+        {
+            return (80, "Same name and company");
+        }
+
+        return null;
+    }
+
+    private static string NormalizePhone(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? string.Empty : new string(value.Where(char.IsDigit).ToArray());
+
+    private static string NormalizeName(Contact contact) =>
+        string.Join(" ", new[] { contact.LastName, contact.FirstName, contact.MiddleName }
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x!.Trim().ToUpperInvariant()));
+
+    private static string GetConversationId(Message message)
+    {
+        if (message.ContactId is not null)
+        {
+            return $"contact:{message.ContactId.Value:N}";
+        }
+
+        if (message.DealId is not null)
+        {
+            return $"deal:{message.DealId.Value:N}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(message.ExternalMessageId))
+        {
+            return $"{message.Channel}:{message.ExternalMessageId.Trim()}";
+        }
+
+        return $"message:{message.Id:N}";
+    }
+
+    private ConversationDto MapConversation(IGrouping<string, Message> group)
+    {
+        var ordered = group
+            .OrderBy(MessageTimestamp)
+            .ThenBy(x => x.CreatedAt)
+            .ToList();
+        var last = ordered[^1];
+        var dealId = ordered.LastOrDefault(x => x.DealId is not null)?.DealId;
+        var deal = dealId is null ? null : Active<Deal>().FirstOrDefault(x => x.Id == dealId);
+        var contactId = ordered.LastOrDefault(x => x.ContactId is not null)?.ContactId ?? deal?.ContactId;
+        var contact = contactId is null ? null : Active<Contact>().FirstOrDefault(x => x.Id == contactId);
+        var companyId = contact?.CompanyId ?? deal?.CompanyId;
+        var company = companyId is null ? null : Active<Company>().FirstOrDefault(x => x.Id == companyId);
+        var openTaskCount = Active<CrmTask>()
+            .ToList()
+            .Count(x =>
+                (x.Status == CrmTaskStatus.New || x.Status == CrmTaskStatus.InProgress) &&
+                ((contactId is not null && x.ContactId == contactId) || (dealId is not null && x.DealId == dealId)));
+        var lastMessageAt = MessageTimestamp(last);
+
+        return new ConversationDto(
+            group.Key,
+            contactId,
+            contact is null ? null : MapContact(contact).FullName,
+            companyId,
+            company?.Name,
+            dealId,
+            deal?.Title,
+            last.Channel,
+            last.Direction,
+            last.Text,
+            lastMessageAt,
+            ResolveConversationStatus(last, lastMessageAt, openTaskCount),
+            ordered.Count,
+            openTaskCount,
+            ordered.Select(MapMessage).ToList());
+    }
+
+    private static DateTimeOffset MessageTimestamp(Message message) =>
+        message.ReceivedAt ?? message.SentAt ?? message.CreatedAt;
+
+    private static ConversationStatus ResolveConversationStatus(Message last, DateTimeOffset lastMessageAt, int openTaskCount)
+    {
+        if (last.Direction == MessageDirection.Incoming)
+        {
+            return lastMessageAt >= DateTimeOffset.UtcNow.AddDays(-1)
+                ? ConversationStatus.Unread
+                : ConversationStatus.WaitingOnUs;
+        }
+
+        if (openTaskCount == 0 && lastMessageAt < DateTimeOffset.UtcNow.AddDays(-30))
+        {
+            return ConversationStatus.Closed;
+        }
+
+        return ConversationStatus.WaitingOnThem;
+    }
+
     private void EnsureCompanyExists(Guid? companyId)
     {
         if (companyId is not null)
@@ -872,6 +1203,98 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
         entity.Name = request.Name.Trim();
         entity.Description = Trim(request.Description);
         entity.IsActive = request.IsActive;
+    }
+
+    private WorkQueueItemDto MapWorkQueueTask(CrmTask task, DateTimeOffset now)
+    {
+        var mapped = MapTask(task);
+        var isOverdue = task.DueAt is not null && task.DueAt.Value.Date < now.Date;
+
+        return new WorkQueueItemDto(
+            $"task:{task.Id:N}",
+            WorkQueueItemType.Task,
+            task.Id,
+            mapped.Title,
+            mapped.Description,
+            null,
+            mapped.Status,
+            mapped.Priority,
+            mapped.DueAt,
+            null,
+            mapped.ContactId,
+            mapped.ContactName,
+            mapped.CompanyId,
+            mapped.CompanyName,
+            mapped.DealId,
+            mapped.DealTitle,
+            mapped.ResponsibleUserId,
+            ResolveTaskBucket(task, now),
+            isOverdue,
+            task.DueAt ?? task.CreatedAt);
+    }
+
+    private WorkQueueItemDto MapWorkQueueActivity(Activity activity, DateTimeOffset now)
+    {
+        var mapped = MapActivity(activity);
+
+        return new WorkQueueItemDto(
+            $"activity:{activity.Id:N}",
+            WorkQueueItemType.Activity,
+            activity.Id,
+            mapped.Title,
+            mapped.Description,
+            mapped.Type,
+            null,
+            null,
+            null,
+            mapped.CreatedAt,
+            mapped.ContactId,
+            mapped.ContactName,
+            mapped.CompanyId,
+            mapped.CompanyName,
+            mapped.DealId,
+            mapped.DealTitle,
+            null,
+            ResolveActivityBucket(activity, now),
+            false,
+            activity.CreatedAt);
+    }
+
+    private static WorkQueueBucket ResolveTaskBucket(CrmTask task, DateTimeOffset now)
+    {
+        if (task.DueAt is null)
+        {
+            return task.ResponsibleUserId is null ? WorkQueueBucket.Unassigned : WorkQueueBucket.Upcoming;
+        }
+
+        if (task.DueAt.Value.Date < now.Date)
+        {
+            return WorkQueueBucket.Overdue;
+        }
+
+        if (task.DueAt.Value.Date == now.Date)
+        {
+            return WorkQueueBucket.DueToday;
+        }
+
+        if (task.DueAt.Value <= now.AddDays(7))
+        {
+            return WorkQueueBucket.ThisWeek;
+        }
+
+        return task.ResponsibleUserId is null ? WorkQueueBucket.Unassigned : WorkQueueBucket.Upcoming;
+    }
+
+    private static WorkQueueBucket ResolveActivityBucket(Activity activity, DateTimeOffset now)
+    {
+        if (activity.CreatedAt.Date == now.Date)
+        {
+            return WorkQueueBucket.DueToday;
+        }
+
+        return activity.CreatedAt >= now.AddDays(-7)
+            ? WorkQueueBucket.ThisWeek
+            : WorkQueueBucket.Upcoming;
     }
 
     private ContactDto MapContact(Contact x)

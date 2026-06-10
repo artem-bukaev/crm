@@ -2,6 +2,12 @@
 
 API-first CRM на .NET 10 с React UI, PostgreSQL, audit log, action layer для AI-агентов, локальным запуском через Aspire и deployment-артефактами для Kubernetes в Yandex Cloud.
 
+## Документация для AI-агентов
+
+Codex, Claude Code и другие AI-агенты должны начинать работу с `docs/ai-agents/README.md`.
+
+Корневые файлы `AGENTS.md` и `CLAUDE.md` указывают на эту документацию и фиксируют обязательные правила проекта.
+
 ## Что реализовано
 
 - Clean Architecture-like solution: `Crm.Domain`, `Crm.Application`, `Crm.Infrastructure`, `Crm.WebApi`, `Crm.WebApp`, `Crm.AppHost`, `Crm.ServiceDefaults`.

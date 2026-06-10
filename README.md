@@ -56,16 +56,19 @@ dotnet ef database update --project src/Crm.Infrastructure --startup-project src
 Запуск через Aspire:
 
 ```bash
-dotnet run --project src/Crm.AppHost
+dotnet run --project src/Crm.AppHost --launch-profile http
 ```
 
 Локальные URL по умолчанию:
 
+- Aspire Dashboard: `http://localhost:18888`
 - Web API: `http://localhost:5080`
 - Swagger: `http://localhost:5080/swagger`
 - Hangfire Dashboard: `http://localhost:5080/hangfire`
 - Frontend dev server: `http://localhost:5173`
 - Health probes: `http://localhost:5080/health/ready`, `http://localhost:5080/health/live`
+
+Для VS Code/Cursor добавлена debug-конфигурация `Aspire AppHost` и task `run: aspire apphost`.
 
 Отдельный запуск без Aspire:
 

@@ -45,17 +45,20 @@ dotnet ef migrations add <Name> --project src/Crm.Infrastructure --startup-proje
 ## Local Run With Aspire
 
 ```bash
-dotnet run --project src/Crm.AppHost
+dotnet run --project src/Crm.AppHost --launch-profile http
 ```
 
 Default local URLs:
 
+- Aspire Dashboard: `http://localhost:18888`
 - Web API: `http://localhost:5080`
 - Swagger: `http://localhost:5080/swagger`
 - Hangfire Dashboard: `http://localhost:5080/hangfire`
 - Frontend dev server: `http://localhost:5173`
 - Ready probe: `http://localhost:5080/health/ready`
 - Live probe: `http://localhost:5080/health/live`
+
+VS Code/Cursor can also use the `Aspire AppHost` debug configuration or the `run: aspire apphost` task.
 
 ## Local Run Without Aspire
 

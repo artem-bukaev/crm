@@ -1,18 +1,19 @@
 # Claude Code Project Instructions
 
-Read `docs/ai-agents/README.md` before working in this repository. It is the entry point for project context, coding rules, local commands, deployment notes, and CRM AI-action safety rules.
+Read `docs/README.md` before working in this repository. It is the entry point for project context, coding rules, local commands, deployment notes, roadmap, and CRM AI-action safety rules.
 
 Minimum reading order:
 
-1. `docs/ai-agents/README.md`
-2. `docs/ai-agents/project-context.md`
-3. `docs/ai-agents/coding-guidelines.md`
-4. `docs/ai-agents/runbook.md`
+1. `docs/README.md`
+2. `docs/project-context.md`
+3. `docs/coding-guidelines.md`
+4. `docs/runbook.md`
 
 Task-specific reading:
 
-- AI-agent/API action work: `docs/ai-agents/agent-action-layer.md`
-- Docker, Kubernetes, Yandex Cloud: `docs/ai-agents/deployment.md`
+- Roadmap and prioritization: `docs/action-plan.md`
+- AI-agent/API action work: `docs/agent-action-layer.md`
+- Docker, Kubernetes, Yandex Cloud: `docs/deployment.md`
 
 Hard constraints:
 

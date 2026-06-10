@@ -53,7 +53,7 @@ tests/
   Crm.Tests/
 docker/
 deploy/
-docs/ai-agents/
+docs/
 ```
 
 Layer ownership:
@@ -129,3 +129,15 @@ The MVP is deployment-ready as a starting point, but before real production expo
 - Hangfire dashboard protection.
 - CI/CD migration strategy, preferably a Kubernetes Job or CI step.
 - Real implementations for currently fake integrations.
+
+## Product Action Plan
+
+Current product priorities are tracked in `action-plan.md`.
+
+Nearest planned improvements:
+
+- Conversation workspace for messages and AI-assisted replies.
+- Activities work queue for tasks, meetings, calls and follow-ups.
+- Contextual AI side panel connected to `AgentAction` and approvals.
+- Contact duplicates and merge queue.
+- Bulk actions for contacts and deals.

@@ -2,11 +2,22 @@
 
 API-first CRM на .NET 10 с React UI, PostgreSQL, audit log, action layer для AI-агентов, локальным запуском через Aspire и deployment-артефактами для Kubernetes в Yandex Cloud.
 
-## Документация для AI-агентов
+## Документация
 
-Codex, Claude Code и другие AI-агенты должны начинать работу с `docs/ai-agents/README.md`.
+Основная документация проекта лежит в `docs/`.
 
-Корневые файлы `AGENTS.md` и `CLAUDE.md` указывают на эту документацию и фиксируют обязательные правила проекта.
+Начинать лучше с `docs/README.md`: там есть карта документов для людей, Codex, Claude Code и других AI-агентов.
+
+Ключевые документы:
+
+- `docs/project-context.md` - контекст продукта и архитектуры;
+- `docs/coding-guidelines.md` - правила разработки;
+- `docs/runbook.md` - локальный запуск, сборка и проверки;
+- `docs/action-plan.md` - план ближайших продуктовых улучшений;
+- `docs/agent-action-layer.md` - правила безопасных AI-действий;
+- `docs/deployment.md` - Docker/Kubernetes/Yandex Cloud.
+
+Корневые файлы `AGENTS.md` и `CLAUDE.md` указывают AI-агентам на эту документацию.
 
 ## Что реализовано
 

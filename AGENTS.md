@@ -1,16 +1,17 @@
 # AI Agent Instructions
 
-This repository keeps shared instructions for Codex, Claude Code, and other AI coding agents in `docs/ai-agents/`.
+This repository keeps shared instructions for Codex, Claude Code, and other AI coding agents in `docs/`.
 
 Before making code changes, read:
 
-1. `docs/ai-agents/README.md`
-2. `docs/ai-agents/project-context.md`
-3. `docs/ai-agents/coding-guidelines.md`
-4. `docs/ai-agents/runbook.md`
+1. `docs/README.md`
+2. `docs/project-context.md`
+3. `docs/coding-guidelines.md`
+4. `docs/runbook.md`
 
-If the task touches AI-agent behavior, also read `docs/ai-agents/agent-action-layer.md`.
-If the task touches Kubernetes, Docker, or Yandex Cloud deployment, also read `docs/ai-agents/deployment.md`.
+If the task touches roadmap or prioritization, also read `docs/action-plan.md`.
+If the task touches AI-agent behavior, also read `docs/agent-action-layer.md`.
+If the task touches Kubernetes, Docker, or Yandex Cloud deployment, also read `docs/deployment.md`.
 
 Critical project rules:
 

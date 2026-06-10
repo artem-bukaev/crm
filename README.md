@@ -1,3 +1,117 @@
+# CRM Core MVP
+
+API-first CRM на .NET 10 с React UI, PostgreSQL, audit log, action layer для AI-агентов, локальным запуском через Aspire и deployment-артефактами для Kubernetes в Yandex Cloud.
+
+## Что реализовано
+
+- Clean Architecture-like solution: `Crm.Domain`, `Crm.Application`, `Crm.Infrastructure`, `Crm.WebApi`, `Crm.WebApp`, `Crm.AppHost`, `Crm.ServiceDefaults`.
+- REST API + Swagger для Contacts, Companies, Pipelines, PipelineStages, Deals, Tasks, Activities/Timeline, Messages, Agents, AgentActions, Approvals.
+- EF Core 10 + PostgreSQL, миграция `InitialCreate`, seed data, soft delete, timestamps, audit log в `SaveChanges`.
+- FluentValidation для входных DTO и единый формат API ошибок.
+- Hangfire + PostgreSQL storage вместо Quartz.
+- Agent Action flow: propose, approve, reject, execute; поддержаны базовые действия `CreateContact`, `UpdateContact`, `CreateDeal`, `UpdateDealStage`, `CreateTask`, `CompleteTask`, `AddNote`, `DraftMessage`, `SendMessage`, `RequestHumanApproval`.
+- React + TypeScript + Vite + Ant Design + React Router + TanStack Query UI.
+- Generated OpenAPI types: `src/Crm.WebApp/src/api/generated/schema.ts`.
+- Dockerfile и Kubernetes manifests под Yandex Cloud Managed Kubernetes в `docker/` и `deploy/`.
+- 10 интеграционных тестов на ключевые сценарии Application service.
+
+## Быстрый старт
+
+Требования:
+
+- .NET SDK 10
+- Node.js 24+ и npm
+- PostgreSQL, доступный локально или через connection string
+
+Connection string задаётся через environment variable или appsettings:
+
+```bash
+export ConnectionStrings__CrmDb='Host=localhost;Port=5432;Database=crm;Username=postgres;Password=postgres'
+```
+
+Установка зависимостей и сборка:
+
+```bash
+dotnet restore
+dotnet build Crm.slnx
+
+cd src/Crm.WebApp
+npm install
+npm run build
+cd ../..
+```
+
+Применить миграции:
+
+```bash
+dotnet ef database update --project src/Crm.Infrastructure --startup-project src/Crm.WebApi
+```
+
+Запуск через Aspire:
+
+```bash
+dotnet run --project src/Crm.AppHost
+```
+
+Локальные URL по умолчанию:
+
+- Web API: `http://localhost:5080`
+- Swagger: `http://localhost:5080/swagger`
+- Hangfire Dashboard: `http://localhost:5080/hangfire`
+- Frontend dev server: `http://localhost:5173`
+- Health probes: `http://localhost:5080/health/ready`, `http://localhost:5080/health/live`
+
+Отдельный запуск без Aspire:
+
+```bash
+dotnet run --project src/Crm.WebApi --launch-profile http
+
+cd src/Crm.WebApp
+npm run dev
+```
+
+Регенерация TypeScript OpenAPI schema:
+
+```bash
+cd src/Crm.WebApp
+npm run generate:api
+```
+
+Тесты:
+
+```bash
+dotnet test Crm.slnx
+```
+
+## Deployment в Yandex Cloud Kubernetes
+
+Docker images:
+
+```bash
+docker build -f docker/Crm.WebApi.Dockerfile -t cr.yandex/<registry-id>/crm-webapi:<tag> .
+docker build -f docker/Crm.WebApp.Dockerfile -t cr.yandex/<registry-id>/crm-webapp:<tag> .
+```
+
+Kubernetes manifests лежат в `deploy/`. Перед применением нужно:
+
+- заменить image names в `deploy/webapi.yaml` и `deploy/webapp.yaml`;
+- создать `crm-secrets` с `ConnectionStrings__CrmDb`;
+- настроить `deploy/ingress.example.yaml`: host, subnet IDs, security group IDs, TLS secret/static IP.
+
+Подробности: `deploy/README.md`.
+
+## Архитектурные замечания
+
+- Полноценную авторизацию лучше добавить до первого реального production доступа: Keycloak/Identity, RBAC, agent permissions, защита Hangfire dashboard.
+- Для нескольких реплик WebApi Hangfire server будет запущен в каждой реплике. Это штатно для Hangfire, но для тяжёлых фоновых задач можно вынести worker в отдельный Deployment.
+- Frontend сейчас собран как MVP bundle с Ant Design. Для роста продукта стоит разнести страницы через lazy loading.
+- AgentAction не хранит chain-of-thought, только `ReasoningSummary`, что правильно для будущих AI-интеграций.
+- Для production миграции лучше выполнять отдельным Kubernetes Job/CI step, а не включать `ApplyMigrationsOnStartup`.
+
+---
+
+# Исходное описание проекта
+
 # Проект: базовая CRM на .NET с подготовкой под AI-агентов
 
 ## 1. Цель проекта
@@ -1173,4 +1287,3 @@ Backend API
 Swagger
 Frontend UI
 ```
-

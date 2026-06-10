@@ -1,0 +1,39 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: crm
+  namespace: crm
+  labels:
+    app.kubernetes.io/name: crm
+    app.kubernetes.io/component: ingress
+  annotations:
+    ingress.alb.yc.io/group-name: crm-production
+    ingress.alb.yc.io/subnets: subnet-id-1,subnet-id-2
+    ingress.alb.yc.io/security-groups: security-group-id
+    ingress.alb.yc.io/external-ipv4-address: auto
+    ingress.alb.yc.io/request-timeout: 60s
+    ingress.alb.yc.io/upgrade-types: WebSocket
+spec:
+  ingressClassName: alb
+  tls:
+    - hosts:
+        - crm.example.com
+      secretName: yc-certmgr-cert-id-replace-me
+  rules:
+    - host: crm.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: crm-webapi
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: crm-webapp
+                port:
+                  number: 80

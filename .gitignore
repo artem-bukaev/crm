@@ -11,3 +11,6 @@
 *.suo
 # Some .NET tooling on Unix may create literal backslash folders.
 *bin\\*
+
+# Claude Code session artifacts
+.claude/worktrees/

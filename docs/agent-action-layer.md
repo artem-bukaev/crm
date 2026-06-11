@@ -94,6 +94,28 @@ Use approval requests for actions that:
 
 Future work should add RBAC, agent permissions and per-action policy checks before production AI integrations are enabled.
 
+## Heartbeat Triggers
+
+Hangfire recurring jobs ("heartbeats") scan the CRM for trigger conditions and create `AgentAction` proposals through `ICrmService.CreateAgentActionAsync`, always with `RequiresApproval = true` (status `Proposed`, with a pending `ApprovalRequest`). Nothing is executed automatically; humans or AI agents review the proposals through the normal approval flow.
+
+Detection logic lives in `IAgentTriggerService`/`AgentTriggerService` in `Crm.Application`. Thin job wrappers live in `Crm.WebApi/Jobs/AgentHeartbeatJobs.cs` and only run the service and log summary counts (detected/created/skipped) via Serilog.
+
+Triggers and proposal mapping:
+
+| Trigger | Condition | Proposal | Target |
+| --- | --- | --- | --- |
+| Waiting conversation | Last message in a conversation is inbound and older than `WaitingConversationThresholdHours` | `DraftMessage` with a placeholder reply payload | Contact (fallback: Deal) |
+| Overdue task | Open task (`New`/`InProgress`) with `DueAt` in the past | `AddNote` reminder on the task's linked contact/company/deal | Task |
+| Stale deal | Open deal with no touch (deal update, task, activity, message) within `StaleDealThresholdDays` | `CreateTask` follow-up linked to the deal | Deal |
+
+Each proposal carries a concise `ReasoningSummary` describing the entity, the condition and the threshold. No chain-of-thought is stored.
+
+Actor: proposals are created by a dedicated system agent (default name `CRM Heartbeat`), seeded idempotently by `CrmDbInitializer` on startup. If the configured agent is missing or inactive, jobs log a warning and skip the run without failing.
+
+Idempotency: a new proposal is skipped while a pending `AgentAction` (status `Proposed` or `Approved`) of the same `ActionType` already targets the same entity. After a proposal is executed or rejected, a new one may be created on a later run if the condition still holds.
+
+Configuration (thresholds, cron schedules, agent name, enable switch) comes from the `AgentHeartbeat` section, see `runbook.md`.
+
 ## Integration Guidance
 
 Current integration implementations are fake placeholders in Infrastructure. Real AI/runtime/message integrations should:

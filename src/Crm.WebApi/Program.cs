@@ -1,12 +1,15 @@
 using System.Text.Json.Serialization;
 using Crm.Application;
+using Crm.Application.Options;
 using Crm.Infrastructure;
 using Crm.Infrastructure.Persistence;
 using Crm.ServiceDefaults;
 using Crm.WebApi.Filters;
+using Crm.WebApi.Jobs;
 using Crm.WebApi.Middleware;
 using Hangfire;
 using Hangfire.PostgreSql;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 using Serilog;
 
@@ -26,6 +29,9 @@ var connectionString = builder.Configuration.GetConnectionString("CrmDb")
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.Configure<AgentHeartbeatOptions>(builder.Configuration.GetSection(AgentHeartbeatOptions.SectionName));
+builder.Services.AddScoped<AgentHeartbeatJobs>();
 
 builder.Services.AddScoped<FluentValidationActionFilter>();
 builder.Services
@@ -96,6 +102,7 @@ app.MapDefaultEndpoints();
 app.MapControllers();
 
 await InitializeDatabaseAsync(app);
+ConfigureAgentHeartbeatJobs(app);
 
 await app.RunAsync();
 
@@ -107,3 +114,33 @@ static async Task InitializeDatabaseAsync(WebApplication app)
     var initializer = scope.ServiceProvider.GetRequiredService<CrmDbInitializer>();
     await initializer.InitializeAsync(applyMigrations);
 }
+
+static void ConfigureAgentHeartbeatJobs(WebApplication app)
+{
+    var options = app.Services.GetRequiredService<IOptions<AgentHeartbeatOptions>>().Value;
+    var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
+
+    if (!options.Enabled)
+    {
+        recurringJobs.RemoveIfExists(AgentHeartbeatJobs.WaitingConversationsJobId);
+        recurringJobs.RemoveIfExists(AgentHeartbeatJobs.OverdueTasksJobId);
+        recurringJobs.RemoveIfExists(AgentHeartbeatJobs.StaleDealsJobId);
+        return;
+    }
+
+    recurringJobs.AddOrUpdate<AgentHeartbeatJobs>(
+        AgentHeartbeatJobs.WaitingConversationsJobId,
+        job => job.DetectWaitingConversationsAsync(CancellationToken.None),
+        CronOrDefault(options.WaitingConversationsCron, AgentHeartbeatOptions.DefaultWaitingConversationsCron));
+    recurringJobs.AddOrUpdate<AgentHeartbeatJobs>(
+        AgentHeartbeatJobs.OverdueTasksJobId,
+        job => job.DetectOverdueTasksAsync(CancellationToken.None),
+        CronOrDefault(options.OverdueTasksCron, AgentHeartbeatOptions.DefaultOverdueTasksCron));
+    recurringJobs.AddOrUpdate<AgentHeartbeatJobs>(
+        AgentHeartbeatJobs.StaleDealsJobId,
+        job => job.DetectStaleDealsAsync(CancellationToken.None),
+        CronOrDefault(options.StaleDealsCron, AgentHeartbeatOptions.DefaultStaleDealsCron));
+}
+
+static string CronOrDefault(string? cron, string fallback) =>
+    string.IsNullOrWhiteSpace(cron) ? fallback : cron.Trim();

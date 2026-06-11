@@ -383,6 +383,13 @@ public sealed record AgentActionDto(
     DateTimeOffset UpdatedAt,
     DateTimeOffset? ExecutedAt);
 
+public sealed record AgentHeartbeatRunResultDto(
+    string Trigger,
+    bool AgentAvailable,
+    int Detected,
+    int Created,
+    int Skipped);
+
 public sealed record ApprovalRequestDto(
     Guid Id,
     CrmEntityType EntityType,

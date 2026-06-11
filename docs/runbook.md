@@ -90,6 +90,30 @@ Generated file:
 src/Crm.WebApp/src/api/generated/schema.ts
 ```
 
+## Agent Heartbeat Jobs
+
+Hangfire recurring jobs detect CRM trigger conditions (waiting conversations, overdue tasks, stale deals) and create `AgentAction` proposals for review. See `agent-action-layer.md` for the trigger model.
+
+Configuration section `AgentHeartbeat` in `appsettings.json` (defaults shown):
+
+```json
+"AgentHeartbeat": {
+  "Enabled": true,
+  "AgentName": "CRM Heartbeat",
+  "WaitingConversationThresholdHours": 4,
+  "StaleDealThresholdDays": 7,
+  "WaitingConversationsCron": "*/15 * * * *",
+  "OverdueTasksCron": "*/15 * * * *",
+  "StaleDealsCron": "0 * * * *"
+}
+```
+
+Notes:
+
+- `Enabled: false` removes the recurring jobs on the next startup.
+- `AgentName` must match an active `Agent`. The default `CRM Heartbeat` system agent is seeded automatically on startup. If you override the name, create the agent yourself; otherwise jobs log a warning and skip.
+- Job runs and counts are visible in logs and in the Hangfire Dashboard (`/hangfire`, Development only) under recurring jobs `agent-heartbeat:*`.
+
 ## Tests and Checks
 
 Backend:

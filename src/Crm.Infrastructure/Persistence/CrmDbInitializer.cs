@@ -1,3 +1,4 @@
+using Crm.Application.Options;
 using Crm.Domain.Entities;
 using Crm.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,8 @@ public sealed class CrmDbInitializer(CrmDbContext db, ILogger<CrmDbInitializer> 
 
     private async Task SeedAsync(CancellationToken cancellationToken)
     {
+        await EnsureHeartbeatAgentAsync(cancellationToken);
+
         if (await db.Pipelines.AnyAsync(cancellationToken))
         {
             return;
@@ -85,6 +88,26 @@ public sealed class CrmDbInitializer(CrmDbContext db, ILogger<CrmDbInitializer> 
         };
 
         db.AddRange(pipeline, newStage, contactedStage, negotiationStage, wonStage, lostStage, company, contact, deal, agent, task);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureHeartbeatAgentAsync(CancellationToken cancellationToken)
+    {
+        var exists = await db.Agents.AnyAsync(
+            x => !x.IsDeleted && x.Name == AgentHeartbeatOptions.DefaultAgentName,
+            cancellationToken);
+        if (exists)
+        {
+            return;
+        }
+
+        logger.LogInformation("Seeding heartbeat system agent {AgentName}", AgentHeartbeatOptions.DefaultAgentName);
+        db.Add(new Agent
+        {
+            Name = AgentHeartbeatOptions.DefaultAgentName,
+            Description = "System agent that proposes follow-up actions from scheduled heartbeat trigger checks.",
+            IsActive = true
+        });
         await db.SaveChangesAsync(cancellationToken);
     }
 }

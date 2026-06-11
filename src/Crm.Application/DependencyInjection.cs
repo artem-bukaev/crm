@@ -10,6 +10,7 @@ public static class DependencyInjection
     {
         services.AddValidatorsFromAssemblyContaining(typeof(DependencyInjection));
         services.AddScoped<ICrmService, CrmService>();
+        services.AddScoped<IAgentTriggerService, AgentTriggerService>();
         return services;
     }
 }

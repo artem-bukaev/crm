@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Crm.Application.DTOs;
+using Crm.Application.Exceptions;
 using Crm.Application.Services;
 using Crm.Domain.Entities;
 using Crm.Domain.Enums;
@@ -14,6 +15,7 @@ public sealed class CrmServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
     private readonly CrmDbContext _db;
+    private readonly TestCurrentActor _actor = new();
     private readonly CrmService _service;
     private readonly Pipeline _pipeline;
     private readonly PipelineStage _newStage;
@@ -29,7 +31,8 @@ public sealed class CrmServiceTests : IDisposable
             .UseSqlite(_connection)
             .Options);
         _db.Database.EnsureCreated();
-        _service = new CrmService(_db);
+        _actor.UserId = Guid.NewGuid();
+        _service = new CrmService(_db, _actor);
 
         _pipeline = new Pipeline { Name = "Default", IsDefault = true };
         _newStage = new PipelineStage { PipelineId = _pipeline.Id, Name = "New", SortOrder = 10, Probability = 10 };
@@ -133,31 +136,96 @@ public sealed class CrmServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ApproveAgentAction_marks_action_approved()
+    public async Task ApproveAgentAction_marks_action_approved_with_claims_user()
     {
         var action = await CreateProposedActionAsync();
 
-        var approved = await _service.ApproveAgentActionAsync(action.Id, new AgentActionDecisionRequest
-        {
-            UserId = Guid.NewGuid()
-        });
+        var approved = await _service.ApproveAgentActionAsync(action.Id);
 
         approved.Status.Should().Be(AgentActionStatus.Approved);
-        _db.ApprovalRequests.Single(x => x.EntityId == action.Id).Status.Should().Be(ApprovalStatus.Approved);
+        approved.ApprovedByUserId.Should().Be(_actor.UserId);
+        var approval = _db.ApprovalRequests.Single(x => x.EntityId == action.Id);
+        approval.Status.Should().Be(ApprovalStatus.Approved);
+        approval.ApprovedByUserId.Should().Be(_actor.UserId);
     }
 
     [Fact]
-    public async Task RejectAgentAction_marks_action_rejected()
+    public async Task RejectAgentAction_marks_action_rejected_with_claims_user()
     {
         var action = await CreateProposedActionAsync();
 
-        var rejected = await _service.RejectAgentActionAsync(action.Id, new AgentActionDecisionRequest
-        {
-            UserId = Guid.NewGuid()
-        });
+        var rejected = await _service.RejectAgentActionAsync(action.Id);
 
         rejected.Status.Should().Be(AgentActionStatus.Rejected);
+        rejected.RejectedByUserId.Should().Be(_actor.UserId);
         _db.ApprovalRequests.Single(x => x.EntityId == action.Id).Status.Should().Be(ApprovalStatus.Rejected);
+    }
+
+    [Fact]
+    public async Task ApproveAgentAction_without_user_identity_is_forbidden()
+    {
+        var action = await CreateProposedActionAsync();
+        _actor.UserId = null;
+        _actor.AgentId = _agent.Id;
+
+        var act = () => _service.ApproveAgentActionAsync(action.Id);
+
+        await act.Should().ThrowAsync<ForbiddenException>();
+        _db.AgentActions.Single(x => x.Id == action.Id).Status.Should().Be(AgentActionStatus.Proposed);
+    }
+
+    [Fact]
+    public async Task CreateAgentAction_as_agent_uses_authenticated_agent_identity()
+    {
+        _actor.UserId = null;
+        _actor.AgentId = _agent.Id;
+
+        var action = await _service.CreateAgentActionAsync(new CreateAgentActionRequest
+        {
+            AgentId = null,
+            ActionType = AgentActionType.AddNote,
+            RequiresApproval = true,
+            InputJson = JsonSerializer.Serialize(new CreateActivityRequest { Title = "Agent proposed note" })
+        });
+
+        action.AgentId.Should().Be(_agent.Id);
+        action.Status.Should().Be(AgentActionStatus.Proposed);
+    }
+
+    [Fact]
+    public async Task CreateAgentAction_as_agent_cannot_spoof_another_agent()
+    {
+        var otherAgent = new Agent { Name = "Other Agent" };
+        _db.Add(otherAgent);
+        await _db.SaveChangesAsync();
+
+        _actor.UserId = null;
+        _actor.AgentId = _agent.Id;
+
+        var act = () => _service.CreateAgentActionAsync(new CreateAgentActionRequest
+        {
+            AgentId = otherAgent.Id,
+            ActionType = AgentActionType.AddNote,
+            RequiresApproval = true,
+            InputJson = JsonSerializer.Serialize(new CreateActivityRequest { Title = "Spoofed note" })
+        });
+
+        await act.Should().ThrowAsync<ForbiddenException>();
+        _db.AgentActions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateAgentAction_without_agent_identity_requires_body_agent_id()
+    {
+        var act = () => _service.CreateAgentActionAsync(new CreateAgentActionRequest
+        {
+            AgentId = null,
+            ActionType = AgentActionType.AddNote,
+            RequiresApproval = true,
+            InputJson = "{}"
+        });
+
+        await act.Should().ThrowAsync<ConflictException>();
     }
 
     [Fact]

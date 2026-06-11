@@ -24,6 +24,14 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
         {
             await WriteErrorAsync(context, StatusCodes.Status409Conflict, ex.Code, ex.Message);
         }
+        catch (UnauthorizedException ex)
+        {
+            await WriteErrorAsync(context, StatusCodes.Status401Unauthorized, ex.Code, ex.Message);
+        }
+        catch (ForbiddenException ex)
+        {
+            await WriteErrorAsync(context, StatusCodes.Status403Forbidden, ex.Code, ex.Message);
+        }
         catch (UnauthorizedAccessException ex)
         {
             await WriteErrorAsync(context, StatusCodes.Status401Unauthorized, "UNAUTHORIZED", ex.Message);

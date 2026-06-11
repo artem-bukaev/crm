@@ -451,3 +451,21 @@
     flex-direction: column;
   }
 }
+
+.login-page {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  background: #eef0eb;
+  padding: 24px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+}
+
+.login-card .brand-mark {
+  margin: 0 auto;
+  color: #f7f4ec;
+}

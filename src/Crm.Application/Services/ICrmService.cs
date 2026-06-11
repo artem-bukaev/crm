@@ -68,11 +68,11 @@ public interface ICrmService
     Task<IReadOnlyList<AgentActionDto>> GetAgentActionsAsync(CancellationToken cancellationToken = default);
     Task<AgentActionDto> GetAgentActionAsync(Guid id, CancellationToken cancellationToken = default);
     Task<AgentActionDto> CreateAgentActionAsync(CreateAgentActionRequest request, CancellationToken cancellationToken = default);
-    Task<AgentActionDto> ApproveAgentActionAsync(Guid id, AgentActionDecisionRequest request, CancellationToken cancellationToken = default);
-    Task<AgentActionDto> RejectAgentActionAsync(Guid id, AgentActionDecisionRequest request, CancellationToken cancellationToken = default);
+    Task<AgentActionDto> ApproveAgentActionAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<AgentActionDto> RejectAgentActionAsync(Guid id, CancellationToken cancellationToken = default);
     Task<AgentActionDto> ExecuteAgentActionAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ApprovalRequestDto>> GetApprovalsAsync(CancellationToken cancellationToken = default);
-    Task<ApprovalRequestDto> ApproveRequestAsync(Guid id, AgentActionDecisionRequest request, CancellationToken cancellationToken = default);
-    Task<ApprovalRequestDto> RejectRequestAsync(Guid id, AgentActionDecisionRequest request, CancellationToken cancellationToken = default);
+    Task<ApprovalRequestDto> ApproveRequestAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ApprovalRequestDto> RejectRequestAsync(Guid id, CancellationToken cancellationToken = default);
 }

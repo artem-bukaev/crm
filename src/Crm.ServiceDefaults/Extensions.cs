@@ -22,10 +22,12 @@ public static class Extensions
 
     public static WebApplication MapDefaultEndpoints(this WebApplication app)
     {
-        app.MapHealthChecks("/health");
-        app.MapHealthChecks("/alive", new HealthCheckOptions { Predicate = _ => false });
-        app.MapHealthChecks("/health/ready");
-        app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+        // Health probes must stay reachable without credentials even when the host
+        // configures a fallback authorization policy.
+        app.MapHealthChecks("/health").AllowAnonymous();
+        app.MapHealthChecks("/alive", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
+        app.MapHealthChecks("/health/ready").AllowAnonymous();
+        app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
         return app;
     }
 }

@@ -1,5 +1,11 @@
 namespace Crm.Domain.Enums;
 
+public enum UserRole
+{
+    Admin,
+    Manager
+}
+
 public enum ContactStatus
 {
     Lead,
@@ -118,7 +124,8 @@ public enum CrmEntityType
     Message,
     Agent,
     AgentAction,
-    ApprovalRequest
+    ApprovalRequest,
+    User
 }
 
 public enum ApprovalStatus

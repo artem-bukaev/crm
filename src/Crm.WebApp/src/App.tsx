@@ -7,9 +7,12 @@ import {
   EditOutlined,
   EyeOutlined,
   FilterOutlined,
+  LockOutlined,
+  LogoutOutlined,
   MessageOutlined,
   PlusOutlined,
   RobotOutlined,
+  UserOutlined,
   SafetyCertificateOutlined,
   SendOutlined,
   TeamOutlined,
@@ -53,6 +56,11 @@ import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-r
 import { z } from 'zod';
 import {
   api,
+  clearAuthSession,
+  getAuthToken,
+  getStoredUser,
+  setAuthSession,
+  type LoginInput,
   type ActivityInput,
   type ActivityType,
   type Agent,
@@ -197,11 +205,13 @@ function StatusTag({ value }: { value?: string | null }) {
 
 function JsonBlock({ value }: { value?: string | null }) {
   if (!value) return <Text type="secondary">—</Text>;
+  let formatted: string;
   try {
-    return <pre className="json-block">{JSON.stringify(JSON.parse(value), null, 2)}</pre>;
+    formatted = JSON.stringify(JSON.parse(value), null, 2);
   } catch {
-    return <pre className="json-block">{value}</pre>;
+    formatted = value;
   }
+  return <pre className="json-block">{formatted}</pre>;
 }
 
 function useNotifyMutation<TData, TVars>(mutationFn: (vars: TVars) => Promise<TData>, invalidate: string[]) {
@@ -300,6 +310,75 @@ function useLookups() {
   };
 }
 
+function LoginPage() {
+  const navigate = useNavigate();
+  const [form] = Form.useForm<LoginInput>();
+  const [loading, setLoading] = useState(false);
+
+  const onFinish = async (values: LoginInput) => {
+    setLoading(true);
+    try {
+      const result = await api.auth.login(values);
+      setAuthSession(result.token, result.user);
+      navigate('/dashboard', { replace: true });
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="login-page">
+      <Card className="login-card">
+        <Space orientation="vertical" size={4} style={{ width: '100%', textAlign: 'center', marginBottom: 16 }}>
+          <span className="brand-mark">C</span>
+          <Title level={3} style={{ margin: 0 }}>Crm Core</Title>
+          <Text type="secondary">Sign in to continue</Text>
+        </Space>
+        <Form form={form} layout="vertical" onFinish={onFinish} requiredMark={false}>
+          <Form.Item name="email" label="Email" rules={[{ required: true }, { type: 'email' }]}>
+            <Input prefix={<UserOutlined />} placeholder="admin@crm.local" autoComplete="username" autoFocus />
+          </Form.Item>
+          <Form.Item name="password" label="Password" rules={[{ required: true }]}>
+            <Input.Password prefix={<LockOutlined />} placeholder="Password" autoComplete="current-password" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" block loading={loading}>Sign in</Button>
+        </Form>
+      </Card>
+    </div>
+  );
+}
+
+function RequireAuth({ children }: { children: ReactNode }) {
+  if (!getAuthToken()) {
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+}
+
+function CurrentUserMenu() {
+  const navigate = useNavigate();
+  const me = useQuery({ queryKey: ['authMe'], queryFn: api.auth.me });
+  const user = me.data ?? getStoredUser();
+
+  const logout = () => {
+    clearAuthSession();
+    navigate('/login', { replace: true });
+  };
+
+  return (
+    <Space>
+      <UserOutlined />
+      <Space orientation="vertical" size={0}>
+        <Text strong>{user?.displayName ?? user?.email ?? '—'}</Text>
+        <Text type="secondary" style={{ fontSize: 12 }}>{user?.role ?? ''}</Text>
+      </Space>
+      <Button icon={<LogoutOutlined />} onClick={logout}>Logout</Button>
+    </Space>
+  );
+}
+
 function Shell() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -336,10 +415,13 @@ function Shell() {
             <Text strong>API</Text>
             <Text type="secondary">{api.baseUrl}</Text>
           </Space>
-          <Space>
-            <Tag color="green">.NET 10</Tag>
-            <Tag color="cyan">Hangfire</Tag>
-            <Tag color="gold">PostgreSQL</Tag>
+          <Space size={16}>
+            <Space>
+              <Tag color="green">.NET 10</Tag>
+              <Tag color="cyan">Hangfire</Tag>
+              <Tag color="gold">PostgreSQL</Tag>
+            </Space>
+            <CurrentUserMenu />
           </Space>
         </Header>
         <Content className="workspace">
@@ -1135,13 +1217,9 @@ function MessagesPage() {
 
   const conversations = query.data ?? [];
   const filtered = conversations.filter((item) => status === 'All' || item.status === status);
+  // selectedId is only set on explicit user clicks; the fallback keeps the first
+  // conversation visually selected without syncing state in an effect.
   const selected = conversations.find((item) => item.id === selectedId) ?? filtered[0] ?? conversations[0];
-
-  useEffect(() => {
-    if (!selectedId && selected?.id) {
-      setSelectedId(selected.id);
-    }
-  }, [selected?.id, selectedId]);
 
   useEffect(() => {
     if (selected) {
@@ -1534,7 +1612,17 @@ export default function App() {
 
   return (
     <ConfigProvider theme={themeConfig}>
-      <Shell />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/*"
+          element={(
+            <RequireAuth>
+              <Shell />
+            </RequireAuth>
+          )}
+        />
+      </Routes>
     </ConfigProvider>
   );
 }

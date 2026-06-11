@@ -8,7 +8,7 @@ using Crm.Domain.Enums;
 
 namespace Crm.Application.Services;
 
-public sealed class CrmService(ICrmDataStore db) : ICrmService
+public sealed class CrmService(ICrmDataStore db, ICurrentActor actor) : ICrmService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -668,11 +668,24 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
 
     public async Task<AgentActionDto> CreateAgentActionAsync(CreateAgentActionRequest request, CancellationToken cancellationToken = default)
     {
-        GetRequired<Agent>(request.AgentId, "Agent");
+        // When the caller is an authenticated agent, the recorded AgentId always comes from the
+        // authenticated identity. A mismatching AgentId in the request body is rejected.
+        if (actor.AgentId is not null &&
+            request.AgentId is not null &&
+            request.AgentId != actor.AgentId)
+        {
+            throw new ForbiddenException("Agents cannot propose actions on behalf of another agent.");
+        }
+
+        var agentId = actor.AgentId
+            ?? request.AgentId
+            ?? throw new ConflictException("AgentId is required when the caller is not an authenticated agent.");
+
+        GetRequired<Agent>(agentId, "Agent");
 
         var action = new AgentAction
         {
-            AgentId = request.AgentId,
+            AgentId = agentId,
             ActionType = request.ActionType,
             Status = request.RequiresApproval ? AgentActionStatus.Proposed : AgentActionStatus.Approved,
             TargetEntityType = request.TargetEntityType,
@@ -702,8 +715,9 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
             : await ExecuteAgentActionAsync(action.Id, cancellationToken);
     }
 
-    public async Task<AgentActionDto> ApproveAgentActionAsync(Guid id, AgentActionDecisionRequest request, CancellationToken cancellationToken = default)
+    public async Task<AgentActionDto> ApproveAgentActionAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        var userId = RequireUserActor();
         var action = GetRequired<AgentAction>(id, "Agent action");
         if (action.Status is AgentActionStatus.Executed or AgentActionStatus.Rejected or AgentActionStatus.Canceled)
         {
@@ -711,7 +725,7 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
         }
 
         action.Status = AgentActionStatus.Approved;
-        action.ApprovedByUserId = request.UserId;
+        action.ApprovedByUserId = userId;
         action.ApprovedAt = DateTimeOffset.UtcNow;
 
         var approval = Active<ApprovalRequest>().FirstOrDefault(x =>
@@ -721,7 +735,7 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
         if (approval is not null)
         {
             approval.Status = ApprovalStatus.Approved;
-            approval.ApprovedByUserId = request.UserId;
+            approval.ApprovedByUserId = userId;
             approval.ApprovedAt = action.ApprovedAt;
         }
 
@@ -729,8 +743,9 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
         return MapAgentAction(action);
     }
 
-    public async Task<AgentActionDto> RejectAgentActionAsync(Guid id, AgentActionDecisionRequest request, CancellationToken cancellationToken = default)
+    public async Task<AgentActionDto> RejectAgentActionAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        var userId = RequireUserActor();
         var action = GetRequired<AgentAction>(id, "Agent action");
         if (action.Status is AgentActionStatus.Executed or AgentActionStatus.Rejected or AgentActionStatus.Canceled)
         {
@@ -738,7 +753,7 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
         }
 
         action.Status = AgentActionStatus.Rejected;
-        action.RejectedByUserId = request.UserId;
+        action.RejectedByUserId = userId;
         action.RejectedAt = DateTimeOffset.UtcNow;
 
         var approval = Active<ApprovalRequest>().FirstOrDefault(x =>
@@ -748,7 +763,7 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
         if (approval is not null)
         {
             approval.Status = ApprovalStatus.Rejected;
-            approval.RejectedByUserId = request.UserId;
+            approval.RejectedByUserId = userId;
             approval.RejectedAt = action.RejectedAt;
         }
 
@@ -864,27 +879,36 @@ public sealed class CrmService(ICrmDataStore db) : ICrmService
             .Select(MapApproval)
             .ToList());
 
-    public async Task<ApprovalRequestDto> ApproveRequestAsync(Guid id, AgentActionDecisionRequest request, CancellationToken cancellationToken = default)
+    public async Task<ApprovalRequestDto> ApproveRequestAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        var userId = RequireUserActor();
         var approval = GetRequired<ApprovalRequest>(id, "Approval request");
         approval.Status = ApprovalStatus.Approved;
-        approval.ApprovedByUserId = request.UserId;
+        approval.ApprovedByUserId = userId;
         approval.ApprovedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
 
         return MapApproval(approval);
     }
 
-    public async Task<ApprovalRequestDto> RejectRequestAsync(Guid id, AgentActionDecisionRequest request, CancellationToken cancellationToken = default)
+    public async Task<ApprovalRequestDto> RejectRequestAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        var userId = RequireUserActor();
         var approval = GetRequired<ApprovalRequest>(id, "Approval request");
         approval.Status = ApprovalStatus.Rejected;
-        approval.RejectedByUserId = request.UserId;
+        approval.RejectedByUserId = userId;
         approval.RejectedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
 
         return MapApproval(approval);
     }
+
+    /// <summary>
+    /// Approval decisions are attributed to the authenticated human user from claims,
+    /// never to a user id supplied in a request body.
+    /// </summary>
+    private Guid RequireUserActor() =>
+        actor.UserId ?? throw new ForbiddenException("Only authenticated users can decide approvals.");
 
     private IQueryable<TEntity> Active<TEntity>() where TEntity : Entity =>
         db.Query<TEntity>().Where(x => !x.IsDeleted);

@@ -1,3 +1,4 @@
+export type UserRole = 'Admin' | 'Manager';
 export type ContactStatus = 'Lead' | 'Active' | 'Inactive' | 'Archived';
 export type DealStatus = 'Open' | 'Won' | 'Lost' | 'Canceled';
 export type TaskStatus = 'New' | 'InProgress' | 'Completed' | 'Canceled';
@@ -33,6 +34,33 @@ export type EntityType =
   | 'AgentAction'
   | 'ApprovalRequest';
 export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected' | 'Canceled';
+
+export type CurrentUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LoginInput = {
+  email: string;
+  password: string;
+};
+
+export type LoginResponse = {
+  token: string;
+  expiresAt: string;
+  user: CurrentUser;
+};
+
+export type AgentApiKey = {
+  agentId: string;
+  apiKey: string;
+  issuedAt: string;
+};
 
 export type DashboardSummary = {
   contacts: number;
@@ -310,14 +338,55 @@ export type AgentActionInput = Pick<AgentAction, 'agentId' | 'actionType' | 'tar
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
+const tokenStorageKey = 'crm.auth.token';
+const userStorageKey = 'crm.auth.user';
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(tokenStorageKey);
+}
+
+export function getStoredUser(): CurrentUser | null {
+  const raw = localStorage.getItem(userStorageKey);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as CurrentUser;
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthSession(token: string, user: CurrentUser) {
+  localStorage.setItem(tokenStorageKey, token);
+  localStorage.setItem(userStorageKey, JSON.stringify(user));
+}
+
+export function clearAuthSession() {
+  localStorage.removeItem(tokenStorageKey);
+  localStorage.removeItem(userStorageKey);
+}
+
+function redirectToLogin() {
+  if (window.location.pathname !== '/login') {
+    window.location.assign('/login');
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getAuthToken();
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
   });
+
+  if (response.status === 401 && path !== '/api/auth/login') {
+    clearAuthSession();
+    redirectToLogin();
+    throw new Error('Authentication required');
+  }
 
   if (response.status === 204) {
     return undefined as T;
@@ -346,6 +415,10 @@ const put = (body: unknown): RequestInit => ({
 
 export const api = {
   baseUrl: apiBaseUrl || 'same origin',
+  auth: {
+    login: (body: LoginInput) => request<LoginResponse>('/api/auth/login', json(body)),
+    me: () => request<CurrentUser>('/api/auth/me'),
+  },
   dashboard: () => request<DashboardSummary>('/api/dashboard'),
   contacts: {
     list: () => request<Contact[]>('/api/contacts'),
@@ -398,17 +471,18 @@ export const api = {
     list: () => request<Agent[]>('/api/agents'),
     create: (body: AgentInput) => request<Agent>('/api/agents', json(body)),
     update: (id: string, body: AgentInput) => request<Agent>(`/api/agents/${id}`, put(body)),
+    issueApiKey: (id: string) => request<AgentApiKey>(`/api/agents/${id}/api-key`, { method: 'POST' }),
   },
   agentActions: {
     list: () => request<AgentAction[]>('/api/agent-actions'),
     create: (body: AgentActionInput) => request<AgentAction>('/api/agent-actions', json(body)),
-    approve: (id: string) => request<AgentAction>(`/api/agent-actions/${id}/approve`, json({})),
-    reject: (id: string) => request<AgentAction>(`/api/agent-actions/${id}/reject`, json({})),
+    approve: (id: string) => request<AgentAction>(`/api/agent-actions/${id}/approve`, { method: 'POST' }),
+    reject: (id: string) => request<AgentAction>(`/api/agent-actions/${id}/reject`, { method: 'POST' }),
     execute: (id: string) => request<AgentAction>(`/api/agent-actions/${id}/execute`, { method: 'POST' }),
   },
   approvals: {
     list: () => request<ApprovalRequest[]>('/api/approvals'),
-    approve: (id: string) => request<ApprovalRequest>(`/api/approvals/${id}/approve`, json({})),
-    reject: (id: string) => request<ApprovalRequest>(`/api/approvals/${id}/reject`, json({})),
+    approve: (id: string) => request<ApprovalRequest>(`/api/approvals/${id}/approve`, { method: 'POST' }),
+    reject: (id: string) => request<ApprovalRequest>(`/api/approvals/${id}/reject`, { method: 'POST' }),
   },
 };

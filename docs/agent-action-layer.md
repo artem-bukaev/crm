@@ -18,6 +18,30 @@ AI Agent -> PostgreSQL
 
 The reason is auditability and human control. Agent activity must be visible as structured CRM actions, not hidden direct database mutations.
 
+## Agent Authentication and Authorization
+
+Agents authenticate against the CRM API with an API key:
+
+- A human issues or rotates a key via `POST /api/agents/{id}/api-key`. The plaintext key (`crm_...`) is returned exactly once; the CRM stores only its SHA-256 hash on the `Agent`.
+- The agent sends the key in the `X-Api-Key` header on every request. The "AgentApiKey" authentication scheme resolves it to the Agent and produces a principal with the agent id claim.
+- Deactivated (`IsActive = false`) or soft-deleted agents are rejected even with a valid key.
+
+What an authenticated agent may do:
+
+- READ: all GET endpoints.
+- PROPOSE: `POST /api/agent-actions`.
+
+What an agent must NOT do (enforced with authorization policies, not controller checks):
+
+- Approve, reject or execute agent actions.
+- Decide approval requests.
+- Call any other mutating endpoint directly (create/update/delete of contacts, deals, tasks, messages, agents, pipelines, and so on). All mutations go through proposed actions plus human approval.
+
+Identity rules:
+
+- When the caller is an authenticated agent, the `AgentId` recorded on a proposed `AgentAction` always comes from the authenticated identity. A different `AgentId` in the request body is rejected with 403.
+- Approve/reject decisions are attributed to the human user id from JWT claims; request bodies carry no user id.
+
 ## Core Concepts
 
 `Agent` represents an automation actor.
@@ -92,7 +116,7 @@ Use approval requests for actions that:
 - are ambiguous or have low confidence;
 - are irreversible or hard to undo.
 
-Future work should add RBAC, agent permissions and per-action policy checks before production AI integrations are enabled.
+Authentication and the read+propose authorization model for agents are implemented (see "Agent Authentication and Authorization" above). Future work should still add finer-grained per-agent permissions and per-action policy checks before production AI integrations are enabled.
 
 ## Integration Guidance
 

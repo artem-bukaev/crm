@@ -99,11 +99,21 @@ public sealed class Message : Entity
     public DateTimeOffset? SentAt { get; set; }
 }
 
+public sealed class User : Entity
+{
+    public string Email { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public UserRole Role { get; set; } = UserRole.Manager;
+    public bool IsActive { get; set; } = true;
+}
+
 public sealed class Agent : Entity
 {
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? ApiKeyHash { get; set; }
 }
 
 public sealed class AgentAction : Entity

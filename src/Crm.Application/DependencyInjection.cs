@@ -1,3 +1,4 @@
+using Crm.Application.Interfaces;
 using Crm.Application.Services;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,6 +11,8 @@ public static class DependencyInjection
     {
         services.AddValidatorsFromAssemblyContaining(typeof(DependencyInjection));
         services.AddScoped<ICrmService, CrmService>();
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
         return services;
     }
 }

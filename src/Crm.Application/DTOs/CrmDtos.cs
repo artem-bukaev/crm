@@ -347,18 +347,19 @@ public sealed record AgentDto(
 
 public sealed class CreateAgentActionRequest
 {
-    public Guid AgentId { get; set; }
+    /// <summary>
+    /// Required for human callers. Ignored as a source of identity for agent callers:
+    /// when the caller authenticates with an agent API key the recorded AgentId always
+    /// comes from the authenticated identity, and a mismatching value is rejected.
+    /// </summary>
+    public Guid? AgentId { get; set; }
+
     public AgentActionType ActionType { get; set; }
     public CrmEntityType? TargetEntityType { get; set; }
     public Guid? TargetEntityId { get; set; }
     public string InputJson { get; set; } = "{}";
     public string? ReasoningSummary { get; set; }
     public bool RequiresApproval { get; set; } = true;
-}
-
-public sealed class AgentActionDecisionRequest
-{
-    public Guid? UserId { get; set; }
 }
 
 public sealed record AgentActionDto(

@@ -36,11 +36,12 @@ Create the namespace first:
 kubectl apply -f deploy/namespace.yaml
 ```
 
-Then create the database secret from your real PostgreSQL connection string:
+Then create the secret with your real PostgreSQL connection string and a random JWT signing key (at least 32 characters; the API refuses to start without it):
 
 ```sh
 kubectl -n crm create secret generic crm-secrets \
   --from-literal='ConnectionStrings__CrmDb=Host=<postgres-host>;Port=6432;Database=crm;Username=<user>;Password=<password>;SSL Mode=Require;' \
+  --from-literal="Auth__Jwt__SigningKey=$(openssl rand -hex 32)" \
   --dry-run=client \
   -o yaml | kubectl apply -f -
 ```

@@ -1,11 +1,17 @@
+using Crm.Application.Interfaces;
 using Crm.Domain.Entities;
 using Crm.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Crm.Infrastructure.Persistence;
 
-public sealed class CrmDbInitializer(CrmDbContext db, ILogger<CrmDbInitializer> logger)
+public sealed class CrmDbInitializer(
+    CrmDbContext db,
+    IConfiguration configuration,
+    IPasswordHasher passwordHasher,
+    ILogger<CrmDbInitializer> logger)
 {
     public async Task InitializeAsync(bool applyMigrations, CancellationToken cancellationToken = default)
     {
@@ -15,7 +21,35 @@ public sealed class CrmDbInitializer(CrmDbContext db, ILogger<CrmDbInitializer> 
             await db.Database.MigrateAsync(cancellationToken);
         }
 
+        await SeedAdminUserAsync(cancellationToken);
         await SeedAsync(cancellationToken);
+    }
+
+    private async Task SeedAdminUserAsync(CancellationToken cancellationToken)
+    {
+        var email = configuration["Auth:SeedAdmin:Email"];
+        var password = configuration["Auth:SeedAdmin:Password"];
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            return;
+        }
+
+        if (await db.Users.AnyAsync(x => !x.IsDeleted, cancellationToken))
+        {
+            return;
+        }
+
+        logger.LogInformation("Seeding initial admin user {Email}", email);
+        db.Users.Add(new User
+        {
+            Email = email.Trim(),
+            DisplayName = configuration["Auth:SeedAdmin:DisplayName"] ?? "Administrator",
+            PasswordHash = passwordHasher.Hash(password),
+            Role = UserRole.Admin,
+            IsActive = true
+        });
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task SeedAsync(CancellationToken cancellationToken)

@@ -7,8 +7,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Crm.Infrastructure.Persistence;
 
-public sealed class CrmDbContext(DbContextOptions<CrmDbContext> options) : DbContext(options), ICrmDataStore
+public sealed class CrmDbContext(DbContextOptions<CrmDbContext> options, ICurrentActor? actor = null)
+    : DbContext(options), ICrmDataStore
 {
+    private static readonly string[] SensitiveAuditProperties =
+    [
+        nameof(User.PasswordHash),
+        nameof(Agent.ApiKeyHash)
+    ];
+
+    public DbSet<User> Users => Set<User>();
     public DbSet<Contact> Contacts => Set<Contact>();
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<Pipeline> Pipelines => Set<Pipeline>();
@@ -57,6 +65,8 @@ public sealed class CrmDbContext(DbContextOptions<CrmDbContext> options) : DbCon
                 EntityType = ResolveEntityType(entity),
                 EntityId = entity.Id,
                 Action = action,
+                UserId = actor?.UserId,
+                AgentId = actor?.AgentId,
                 BeforeJson = beforeJson,
                 AfterJson = SerializeValues(entry.Properties.ToDictionary(x => x.Metadata.Name, x => x.CurrentValue)),
                 CreatedAt = now
@@ -73,6 +83,15 @@ public sealed class CrmDbContext(DbContextOptions<CrmDbContext> options) : DbCon
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasIndex(x => x.Email).IsUnique();
+            entity.Property(x => x.Email).HasMaxLength(256);
+            entity.Property(x => x.DisplayName).HasMaxLength(256);
+            entity.Property(x => x.PasswordHash).HasMaxLength(512);
+            entity.Property(x => x.Role).HasConversion<string>().HasMaxLength(32);
+        });
+
         modelBuilder.Entity<Contact>(entity =>
         {
             entity.HasIndex(x => x.Email);
@@ -152,6 +171,8 @@ public sealed class CrmDbContext(DbContextOptions<CrmDbContext> options) : DbCon
         {
             entity.Property(x => x.Name).HasMaxLength(200);
             entity.Property(x => x.Description).HasMaxLength(2000);
+            entity.Property(x => x.ApiKeyHash).HasMaxLength(64);
+            entity.HasIndex(x => x.ApiKeyHash);
         });
 
         modelBuilder.Entity<AgentAction>(entity =>
@@ -189,6 +210,7 @@ public sealed class CrmDbContext(DbContextOptions<CrmDbContext> options) : DbCon
     private static CrmEntityType ResolveEntityType(IAuditableEntity entity) =>
         entity switch
         {
+            User => CrmEntityType.User,
             Contact => CrmEntityType.Contact,
             Company => CrmEntityType.Company,
             Pipeline => CrmEntityType.Pipeline,
@@ -203,6 +225,16 @@ public sealed class CrmDbContext(DbContextOptions<CrmDbContext> options) : DbCon
             _ => throw new InvalidOperationException($"Unsupported audit entity {entity.GetType().Name}.")
         };
 
-    private static string SerializeValues(Dictionary<string, object?> values) =>
-        JsonSerializer.Serialize(values, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+    private static string SerializeValues(Dictionary<string, object?> values)
+    {
+        foreach (var property in SensitiveAuditProperties)
+        {
+            if (values.ContainsKey(property))
+            {
+                values[property] = "[REDACTED]";
+            }
+        }
+
+        return JsonSerializer.Serialize(values, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+    }
 }

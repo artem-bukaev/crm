@@ -1,9 +1,34 @@
 using Crm.Application.DTOs;
+using Crm.Application.Exceptions;
+using Crm.Application.Interfaces;
 using Crm.Application.Services;
 using Crm.Domain.Enums;
+using Crm.WebApi.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Crm.WebApi.Controllers;
+
+[ApiController]
+[Route("api/auth")]
+public sealed class AuthController(IAuthService auth, JwtTokenService tokens, ICurrentActor actor) : ControllerBase
+{
+    [HttpPost("login")]
+    [AllowAnonymous]
+    public async Task<LoginResponseDto> Login(LoginRequest request, CancellationToken cancellationToken)
+    {
+        var user = await auth.ValidateCredentialsAsync(request, cancellationToken);
+        return tokens.CreateToken(user);
+    }
+
+    [HttpGet("me")]
+    [Authorize(Policy = AuthConstants.Policies.HumanOnly)]
+    public Task<UserDto> Me(CancellationToken cancellationToken)
+    {
+        var userId = actor.UserId ?? throw new UnauthorizedException("Authentication is required.");
+        return auth.GetUserAsync(userId, cancellationToken);
+    }
+}
 
 [ApiController]
 [Route("api/dashboard")]
@@ -264,8 +289,13 @@ public sealed class MessagesController(ICrmService crm) : ControllerBase
 
 [ApiController]
 [Route("api/agents")]
-public sealed class AgentsController(ICrmService crm) : ControllerBase
+public sealed class AgentsController(ICrmService crm, IAuthService auth) : ControllerBase
 {
+    /// <summary>Issues or rotates the API key for an agent. The plaintext key is returned exactly once.</summary>
+    [HttpPost("{id:guid}/api-key")]
+    public Task<AgentApiKeyDto> IssueApiKey(Guid id, CancellationToken cancellationToken) =>
+        auth.IssueAgentApiKeyAsync(id, cancellationToken);
+
     [HttpGet]
     public Task<IReadOnlyList<AgentDto>> Get(CancellationToken cancellationToken) => crm.GetAgentsAsync(cancellationToken);
 
@@ -294,7 +324,9 @@ public sealed class AgentActionsController(ICrmService crm) : ControllerBase
     [HttpGet("{id:guid}")]
     public Task<AgentActionDto> Get(Guid id, CancellationToken cancellationToken) => crm.GetAgentActionAsync(id, cancellationToken);
 
+    /// <summary>Proposing actions is the only mutation available to authenticated agents.</summary>
     [HttpPost]
+    [Authorize(Policy = AuthConstants.Policies.HumanOrAgent)]
     public async Task<ActionResult<AgentActionDto>> Create(CreateAgentActionRequest request, CancellationToken cancellationToken)
     {
         var result = await crm.CreateAgentActionAsync(request, cancellationToken);
@@ -302,12 +334,12 @@ public sealed class AgentActionsController(ICrmService crm) : ControllerBase
     }
 
     [HttpPost("{id:guid}/approve")]
-    public Task<AgentActionDto> Approve(Guid id, AgentActionDecisionRequest request, CancellationToken cancellationToken) =>
-        crm.ApproveAgentActionAsync(id, request, cancellationToken);
+    public Task<AgentActionDto> Approve(Guid id, CancellationToken cancellationToken) =>
+        crm.ApproveAgentActionAsync(id, cancellationToken);
 
     [HttpPost("{id:guid}/reject")]
-    public Task<AgentActionDto> Reject(Guid id, AgentActionDecisionRequest request, CancellationToken cancellationToken) =>
-        crm.RejectAgentActionAsync(id, request, cancellationToken);
+    public Task<AgentActionDto> Reject(Guid id, CancellationToken cancellationToken) =>
+        crm.RejectAgentActionAsync(id, cancellationToken);
 
     [HttpPost("{id:guid}/execute")]
     public Task<AgentActionDto> Execute(Guid id, CancellationToken cancellationToken) =>
@@ -322,10 +354,10 @@ public sealed class ApprovalsController(ICrmService crm) : ControllerBase
     public Task<IReadOnlyList<ApprovalRequestDto>> Get(CancellationToken cancellationToken) => crm.GetApprovalsAsync(cancellationToken);
 
     [HttpPost("{id:guid}/approve")]
-    public Task<ApprovalRequestDto> Approve(Guid id, AgentActionDecisionRequest request, CancellationToken cancellationToken) =>
-        crm.ApproveRequestAsync(id, request, cancellationToken);
+    public Task<ApprovalRequestDto> Approve(Guid id, CancellationToken cancellationToken) =>
+        crm.ApproveRequestAsync(id, cancellationToken);
 
     [HttpPost("{id:guid}/reject")]
-    public Task<ApprovalRequestDto> Reject(Guid id, AgentActionDecisionRequest request, CancellationToken cancellationToken) =>
-        crm.RejectRequestAsync(id, request, cancellationToken);
+    public Task<ApprovalRequestDto> Reject(Guid id, CancellationToken cancellationToken) =>
+        crm.RejectRequestAsync(id, cancellationToken);
 }

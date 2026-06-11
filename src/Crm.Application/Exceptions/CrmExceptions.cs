@@ -11,5 +11,9 @@ public sealed class NotFoundException(string message) : CrmException("NOT_FOUND"
 
 public sealed class ConflictException(string message) : CrmException("CONFLICT", message);
 
+public sealed class UnauthorizedException(string message) : CrmException("UNAUTHORIZED", message);
+
+public sealed class ForbiddenException(string message) : CrmException("FORBIDDEN", message);
+
 public sealed class CrmValidationException(IEnumerable<ValidationFailure> failures)
     : FluentValidation.ValidationException(failures);

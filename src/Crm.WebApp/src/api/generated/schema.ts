@@ -267,13 +267,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["AgentActionDecisionRequest"];
-                    "text/json": components["schemas"]["AgentActionDecisionRequest"];
-                    "application/*+json": components["schemas"]["AgentActionDecisionRequest"];
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -312,13 +306,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["AgentActionDecisionRequest"];
-                    "text/json": components["schemas"]["AgentActionDecisionRequest"];
-                    "application/*+json": components["schemas"]["AgentActionDecisionRequest"];
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -368,6 +356,45 @@ export interface paths {
                         "text/plain": components["schemas"]["AgentActionDto"];
                         "application/json": components["schemas"]["AgentActionDto"];
                         "text/json": components["schemas"]["AgentActionDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/{id}/api-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["AgentApiKeyDto"];
+                        "application/json": components["schemas"]["AgentApiKeyDto"];
+                        "text/json": components["schemas"]["AgentApiKeyDto"];
                     };
                 };
             };
@@ -565,13 +592,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["AgentActionDecisionRequest"];
-                    "text/json": components["schemas"]["AgentActionDecisionRequest"];
-                    "application/*+json": components["schemas"]["AgentActionDecisionRequest"];
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -610,13 +631,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["AgentActionDecisionRequest"];
-                    "text/json": components["schemas"]["AgentActionDecisionRequest"];
-                    "application/*+json": components["schemas"]["AgentActionDecisionRequest"];
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description OK */
                 200: {
@@ -631,6 +646,86 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["LoginRequest"];
+                    "text/json": components["schemas"]["LoginRequest"];
+                    "application/*+json": components["schemas"]["LoginRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginResponseDto"];
+                        "application/json": components["schemas"]["LoginResponseDto"];
+                        "text/json": components["schemas"]["LoginResponseDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["UserDto"];
+                        "application/json": components["schemas"]["UserDto"];
+                        "text/json": components["schemas"]["UserDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2098,10 +2193,6 @@ export interface components {
         };
         /** @enum {string} */
         ActivityType: "Note" | "Call" | "Email" | "TelegramMessage" | "Meeting" | "SystemEvent" | "AgentAction";
-        AgentActionDecisionRequest: {
-            /** Format: uuid */
-            userId?: string | null;
-        };
         AgentActionDto: {
             /** Format: uuid */
             id?: string;
@@ -2138,6 +2229,13 @@ export interface components {
         AgentActionStatus: "Proposed" | "Approved" | "Rejected" | "Executed" | "Failed" | "Canceled";
         /** @enum {string} */
         AgentActionType: "CreateContact" | "UpdateContact" | "CreateDeal" | "UpdateDealStage" | "CreateTask" | "CompleteTask" | "AddNote" | "DraftMessage" | "SendMessage" | "RequestHumanApproval";
+        AgentApiKeyDto: {
+            /** Format: uuid */
+            agentId?: string;
+            apiKey?: string | null;
+            /** Format: date-time */
+            issuedAt?: string;
+        };
         AgentDto: {
             /** Format: uuid */
             id?: string;
@@ -2294,7 +2392,7 @@ export interface components {
         };
         CreateAgentActionRequest: {
             /** Format: uuid */
-            agentId?: string;
+            agentId?: string | null;
             actionType?: components["schemas"]["AgentActionType"];
             targetEntityType?: components["schemas"]["CrmEntityType"];
             /** Format: uuid */
@@ -2395,7 +2493,7 @@ export interface components {
             responsibleUserId?: string | null;
         };
         /** @enum {string} */
-        CrmEntityType: "Contact" | "Company" | "Pipeline" | "PipelineStage" | "Deal" | "Task" | "Activity" | "Message" | "Agent" | "AgentAction" | "ApprovalRequest";
+        CrmEntityType: "Contact" | "Company" | "Pipeline" | "PipelineStage" | "Deal" | "Task" | "Activity" | "Message" | "Agent" | "AgentAction" | "ApprovalRequest" | "User";
         /** @enum {string} */
         CrmTaskPriority: "Low" | "Normal" | "High" | "Urgent";
         /** @enum {string} */
@@ -2450,6 +2548,16 @@ export interface components {
         };
         /** @enum {string} */
         DealStatus: "Open" | "Won" | "Lost" | "Canceled";
+        LoginRequest: {
+            email?: string | null;
+            password?: string | null;
+        };
+        LoginResponseDto: {
+            token?: string | null;
+            /** Format: date-time */
+            expiresAt?: string;
+            user?: components["schemas"]["UserDto"];
+        };
         MergeContactsRequest: {
             /** Format: uuid */
             primaryContactId?: string;
@@ -2618,6 +2726,20 @@ export interface components {
             /** Format: uuid */
             responsibleUserId?: string | null;
         };
+        UserDto: {
+            /** Format: uuid */
+            id?: string;
+            email?: string | null;
+            displayName?: string | null;
+            role?: components["schemas"]["UserRole"];
+            isActive?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        /** @enum {string} */
+        UserRole: "Admin" | "Manager";
         /** @enum {string} */
         WorkQueueBucket: "Overdue" | "DueToday" | "ThisWeek" | "Upcoming" | "Unassigned";
         WorkQueueItemDto: {

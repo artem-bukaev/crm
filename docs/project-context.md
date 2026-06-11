@@ -19,6 +19,7 @@ Backend:
 - Serilog
 - Hangfire + PostgreSQL storage
 - .NET Aspire AppHost/ServiceDefaults
+- JWT bearer auth for humans + API-key auth for agents (см. `runbook.md` и `agent-action-layer.md`)
 
 Frontend:
 
@@ -83,6 +84,7 @@ The MVP includes API and UI support for:
 - Agents
 - Agent actions
 - Approval requests
+- Authentication: login/me endpoints, Users with roles (Admin/Manager), agent API keys
 
 The application service is centered around `ICrmService` and `CrmService`. Controllers should stay thin and delegate business behavior to the application layer.
 
@@ -120,13 +122,26 @@ Default frontend dev server:
 http://localhost:5173
 ```
 
+## Authentication Model (MVP slice)
+
+Implemented in the current codebase:
+
+- `User` entity (unique Email, DisplayName, PBKDF2 PasswordHash via ASP.NET Identity `PasswordHasher`, Role enum Admin/Manager).
+- `POST /api/auth/login` issues a JWT (symmetric key from configuration), `GET /api/auth/me` returns the current user.
+- Agents authenticate with an API key in the `X-Api-Key` header ("AgentApiKey" scheme); only a SHA-256 hash is stored on `Agent.ApiKeyHash`. `POST /api/agents/{id}/api-key` issues/rotates a key and returns the plaintext exactly once.
+- Authentication is required globally through a fallback policy (JWT or AgentApiKey). Anonymous access: login, health endpoints, Swagger in Development.
+- Authorization is policy-based: GET endpoints accept humans and agents; every mutating endpoint is human-only by convention (`MutationAuthorizationConvention`), except `POST /api/agent-actions` which also accepts agents.
+- Approve/reject/execute of agent actions and approval decisions are human-only, and the acting user id comes from JWT claims, never from request bodies. Agents cannot spoof another agent's id when proposing actions.
+- Hangfire dashboard is restricted to Admin users (local requests are also allowed in Development).
+
 ## Production Gaps To Respect
 
 The MVP is deployment-ready as a starting point, but before real production exposure the project still needs:
 
-- Authentication and authorization, for example Keycloak/Identity.
-- RBAC and agent permission model.
-- Hangfire dashboard protection.
+- External identity provider integration (e.g. Keycloak/OIDC), refresh tokens, password reset and user management UI. The current JWT + seeded-admin auth is an MVP slice.
+- Finer-grained RBAC and per-agent permission/scoping model (current model: role enum for humans, read+propose for agents).
+- Browser access to the Hangfire dashboard outside Development requires a reverse proxy that injects an Admin JWT (the dashboard filter itself is in place).
+- Secret management for `Auth:Jwt:SigningKey` and seeded admin credentials (Kubernetes Secrets / vault), plus key rotation.
 - CI/CD migration strategy, preferably a Kubernetes Job or CI step.
 - Real implementations for currently fake integrations.
 

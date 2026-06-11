@@ -191,7 +191,7 @@ public sealed class CreateAgentActionRequestValidator : AbstractValidator<Create
 {
     public CreateAgentActionRequestValidator()
     {
-        RuleFor(x => x.AgentId).NotEmpty();
+        RuleFor(x => x.AgentId).NotEqual(Guid.Empty).When(x => x.AgentId is not null);
         RuleFor(x => x.ActionType).IsInEnum();
         RuleFor(x => x.TargetEntityType).NotNull()
             .When(x => x.ActionType is AgentActionType.UpdateContact
@@ -221,10 +221,11 @@ public sealed class CreateAgentActionRequestValidator : AbstractValidator<Create
     }
 }
 
-public sealed class AgentActionDecisionRequestValidator : AbstractValidator<AgentActionDecisionRequest>
+public sealed class LoginRequestValidator : AbstractValidator<LoginRequest>
 {
-    public AgentActionDecisionRequestValidator()
+    public LoginRequestValidator()
     {
-        RuleFor(x => x.UserId).NotEmpty().When(x => x.UserId is not null);
+        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
+        RuleFor(x => x.Password).NotEmpty().MaximumLength(256);
     }
 }

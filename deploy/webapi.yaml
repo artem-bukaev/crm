@@ -69,6 +69,11 @@ spec:
                 secretKeyRef:
                   name: crm-secrets
                   key: ConnectionStrings__CrmDb
+            - name: Auth__Jwt__SigningKey
+              valueFrom:
+                secretKeyRef:
+                  name: crm-secrets
+                  key: Auth__Jwt__SigningKey
           resources:
             requests:
               cpu: 100m

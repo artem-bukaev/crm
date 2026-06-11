@@ -990,25 +990,8 @@ public sealed class CrmService(ICrmDataStore db, ICurrentActor actor) : ICrmServ
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Select(x => x!.Trim().ToUpperInvariant()));
 
-    private static string GetConversationId(Message message)
-    {
-        if (message.ContactId is not null)
-        {
-            return $"contact:{message.ContactId.Value:N}";
-        }
-
-        if (message.DealId is not null)
-        {
-            return $"deal:{message.DealId.Value:N}";
-        }
-
-        if (!string.IsNullOrWhiteSpace(message.ExternalMessageId))
-        {
-            return $"{message.Channel}:{message.ExternalMessageId.Trim()}";
-        }
-
-        return $"message:{message.Id:N}";
-    }
+    private static string GetConversationId(Message message) =>
+        ConversationHelper.GetConversationId(message);
 
     private ConversationDto MapConversation(IGrouping<string, Message> group)
     {
@@ -1049,7 +1032,7 @@ public sealed class CrmService(ICrmDataStore db, ICurrentActor actor) : ICrmServ
     }
 
     private static DateTimeOffset MessageTimestamp(Message message) =>
-        message.ReceivedAt ?? message.SentAt ?? message.CreatedAt;
+        ConversationHelper.GetTimestamp(message);
 
     private static ConversationStatus ResolveConversationStatus(Message last, DateTimeOffset lastMessageAt, int openTaskCount)
     {

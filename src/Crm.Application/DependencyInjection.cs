@@ -13,6 +13,7 @@ public static class DependencyInjection
         services.AddScoped<ICrmService, CrmService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddSingleton<IPasswordHasher, IdentityPasswordHasher>();
+        services.AddScoped<IAgentTriggerService, AgentTriggerService>();
         return services;
     }
 }

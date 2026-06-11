@@ -148,6 +148,22 @@ Definition of done:
 
 - Пользователь выбирает несколько записей и выполняет одну массовую операцию с понятным результатом по каждой записи.
 
+## P1 - Agent Heartbeat Triggers
+
+Status: implemented as a first MVP slice.
+
+Цель: фоновые Hangfire-задачи сами находят ситуации, требующие внимания, и создают `AgentAction` proposals через approval flow.
+
+MVP-срез:
+
+- Recurring jobs: waiting conversations, overdue tasks, stale deals. Done.
+- Proposals через `ICrmService.CreateAgentActionAsync` c `RequiresApproval = true`. Done.
+- Идемпотентность: pending proposal того же типа на ту же сущность не дублируется. Done.
+- Конфигурация порогов и cron в секции `AgentHeartbeat`. Done.
+- Системный агент `CRM Heartbeat` в seed данных. Done.
+
+Подробности: `agent-action-layer.md` (Heartbeat Triggers) и `runbook.md` (Agent Heartbeat Jobs).
+
 ## P2 - Products / Offers Catalog
 
 Цель: дать менеджерам и агентам каталог предложений, которые можно использовать в сделках и коммуникациях.

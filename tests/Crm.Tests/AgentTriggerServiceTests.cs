@@ -34,7 +34,8 @@ public sealed class AgentTriggerServiceTests : IDisposable
             .UseSqlite(_connection)
             .Options);
         _db.Database.EnsureCreated();
-        _service = new CrmService(_db);
+        // Heartbeat jobs run in the background with no authenticated actor.
+        _service = new CrmService(_db, new TestCurrentActor());
 
         _options = new AgentHeartbeatOptions();
         _triggerService = new AgentTriggerService(_db, _service, Microsoft.Extensions.Options.Options.Create(_options));
